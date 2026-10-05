@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowUpRight, Layers, Loader2, LockKeyhole } from 'lucide-react';
 import { BoardDocument, type BoardState } from '@atelier/domain';
@@ -13,10 +13,12 @@ export function PublicPage({ published = false }: { published?: boolean }) {
     { user } = useAuth(),
     navigate = useNavigate(),
     [password, setPassword] = useState(''),
-    [attempt, setAttempt] = useState('');
-  const document = useMemo(() => new BoardDocument(), [token]);
+    [attempt, setAttempt] = useState(''),
+    [params] = useSearchParams();
+  const boardId = params.get('quadro');
+  const document = useMemo(() => new BoardDocument(), [token, boardId]);
   const query = useQuery({
-    queryKey: ['public', token, attempt],
+    queryKey: ['public', token, attempt, boardId],
     queryFn: () =>
       api<{
         board: { id: string; title: string; description: string };
@@ -25,15 +27,17 @@ export function PublicPage({ published = false }: { published?: boolean }) {
       }>(
         (published ? '/published/' : '/shares/') +
           token +
-          (attempt ? '?password=' + encodeURIComponent(attempt) : ''),
+          (boardId ? '?boardId=' + encodeURIComponent(boardId) : ''),
+        { headers: attempt ? { 'X-Share-Password': attempt } : {} },
       ),
     retry: false,
-    refetchInterval: 3000,
+    refetchInterval: 2000,
   });
   useEffect(() => {
     const meta = document.doc.getMap('publicMeta');
     if (query.data) {
       const next = query.data.state;
+      if (meta.get('version') === next.revision) return;
       document.doc.transact(() => {
         for (const key of document.cards.keys())
           if (!next.cards.some((c) => c.id === key)) document.cards.delete(key);
@@ -50,7 +54,9 @@ export function PublicPage({ published = false }: { published?: boolean }) {
   }, [document]);
   const accept = async () => {
     if (!user) {
-      navigate('/entrar');
+      navigate(
+        '/entrar?voltar=' + encodeURIComponent(window.location.pathname + window.location.search),
+      );
       return;
     }
     const result = await api<{ boardId: string }>('/shares/' + token + '/accept', {
@@ -129,6 +135,7 @@ export function PublicPage({ published = false }: { published?: boolean }) {
             readOnly
             onUpload={() => {}}
             shareToken={token}
+            publicPath={(published ? '/publico/' : '/compartilhar/') + token}
           />
         )}
       />
@@ -157,7 +164,10 @@ export function InvitationPage() {
           Aceitar convite
         </button>
       ) : (
-        <Link className="primary-button" to="/entrar">
+        <Link
+          className="primary-button"
+          to={'/entrar?voltar=' + encodeURIComponent('/convite/' + token)}
+        >
           Entrar para aceitar
         </Link>
       )}

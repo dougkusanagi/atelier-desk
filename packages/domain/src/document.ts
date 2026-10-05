@@ -213,12 +213,25 @@ export class BoardDocument {
     });
   }
   restore(ids: string[]) {
-    this.transact(() =>
+    const batches = new Set(
+      ids.map((key) => this.cards.get(key)?.get('deletedAt')).filter(Boolean),
+    );
+    this.transact(() => {
       ids.forEach((key) => {
         this.cards.get(key)?.delete('deletedAt');
         this.connectors.get(key)?.delete('deletedAt');
-      }),
-    );
+      });
+      this.connectors.forEach((line) => {
+        const source = line.get('source') as { cardId?: string },
+          target = line.get('target') as { cardId?: string };
+        if (
+          batches.has(line.get('deletedAt')) &&
+          (!source.cardId || !this.cards.get(source.cardId)?.get('deletedAt')) &&
+          (!target.cardId || !this.cards.get(target.cardId)?.get('deletedAt'))
+        )
+          line.delete('deletedAt');
+      });
+    });
   }
   duplicate(ids: string[], offset = 24) {
     const selected = this.state.cards.filter((c) => ids.includes(c.id) && !c.deletedAt);

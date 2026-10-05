@@ -7,6 +7,7 @@ import * as Y from 'yjs';
 import { BoardDocument } from '@atelier/domain';
 import { createApp } from './app';
 import { publicAddress } from './previews';
+import { Documents } from './documents';
 type Session = { cookie: string; csrf: string; id: string; boardId: string };
 describe('compartilhamento, arquivos, comentários e exportações', () => {
   let instance: Awaited<ReturnType<typeof createApp>>,
@@ -59,6 +60,113 @@ describe('compartilhamento, arquivos, comentários e exportações', () => {
     expect(result.json().update).toBeUndefined();
     expect(result.json().members).toBeUndefined();
     expect(result.body).not.toContain('owner@example.test');
+  });
+  it('encerra permissões aceitas quando o link vence', async () => {
+    const grant = await instance.app.inject({
+      method: 'POST',
+      url: '/api/v1/boards/' + owner.boardId + '/shares',
+      headers: headers(owner),
+      payload: { role: 'editor' },
+    });
+    await instance.app.inject({
+      method: 'POST',
+      url: '/api/v1/shares/' + grant.json().token + '/accept',
+      headers: headers(reader),
+      payload: {},
+    });
+    await instance.db.query(
+      "UPDATE share_links SET expires_at=now()-interval '1 second' WHERE id=$1",
+      [grant.json().id],
+    );
+    const denied = await instance.app.inject({
+      url: '/api/v1/boards/' + owner.boardId,
+      headers: headers(reader),
+    });
+    expect(denied.statusCode).toBe(404);
+    await instance.db.query('DELETE FROM board_members WHERE board_id=$1 AND user_id=$2', [
+      owner.boardId,
+      reader.id,
+    ]);
+  });
+  it('preserva o acesso direto ao aceitar um link mais restrito', async () => {
+    await instance.db.query(
+      "INSERT INTO board_members(board_id,user_id,role) VALUES($1,$2,'editor')",
+      [owner.boardId, reader.id],
+    );
+    await instance.app.inject({
+      method: 'POST',
+      url: '/api/v1/shares/' + viewToken + '/accept',
+      headers: headers(reader),
+      payload: {},
+    });
+    const access = await instance.app.inject({
+      url: '/api/v1/boards/' + owner.boardId,
+      headers: headers(reader),
+    });
+    expect(access.json().role).toBe('editor');
+    await instance.db.query('DELETE FROM board_members WHERE board_id=$1 AND user_id=$2', [
+      owner.boardId,
+      reader.id,
+    ]);
+  });
+  it('limita navegação pública ao conjunto explícito de descendentes', async () => {
+    const child = await instance.app.inject({
+      method: 'POST',
+      url: '/api/v1/boards',
+      headers: headers(owner),
+      payload: {
+        workspaceId: (
+          await instance.app.inject({
+            url: '/api/v1/boards/' + owner.boardId,
+            headers: headers(owner),
+          })
+        ).json().workspace_id,
+        parentId: owner.boardId,
+        title: 'Quadro filho',
+      },
+    });
+    const privateChild = await instance.app.inject(
+      '/api/v1/shares/' + viewToken + '?boardId=' + child.json().id,
+    );
+    expect(privateChild.statusCode).toBe(404);
+    const grant = await instance.app.inject({
+      method: 'POST',
+      url: '/api/v1/boards/' + owner.boardId + '/shares',
+      headers: headers(owner),
+      payload: { includeDescendants: true },
+    });
+    const visible = await instance.app.inject(
+      '/api/v1/shares/' + grant.json().token + '?boardId=' + child.json().id,
+    );
+    expect(visible.statusCode).toBe(200);
+    expect(visible.json().board.title).toBe('Quadro filho');
+  });
+  it('serializa escritores independentes e conserva as duas alterações', async () => {
+    const second = new Documents(instance.db),
+      a = new BoardDocument(),
+      b = new BoardDocument();
+    const snapshot = Y.encodeStateAsUpdate((await instance.documents.get(owner.boardId)).board.doc);
+    Y.applyUpdate(a.doc, snapshot);
+    Y.applyUpdate(b.doc, snapshot);
+    await second.get(owner.boardId);
+    const aa = a.add('note', { x: 1000, y: 1000 }),
+      bb = b.add('note', { x: 1400, y: 1000 });
+    await Promise.all([
+      instance.documents.update(
+        owner.boardId,
+        owner.id,
+        Y.encodeStateAsUpdate(a.doc),
+        1,
+        crypto.randomUUID(),
+      ),
+      second.update(owner.boardId, owner.id, Y.encodeStateAsUpdate(b.doc), 1, crypto.randomUUID()),
+    ]);
+    const state = await instance.documents.snapshot(owner.boardId);
+    expect(state.cards.map((c) => c.id)).toContain(aa);
+    expect(state.cards.map((c) => c.id)).toContain(bb);
+    second.close();
+    a.destroy();
+    b.destroy();
   });
   it('impede mutações de uma conta com acesso somente leitura', async () => {
     const accepted = await instance.app.inject({

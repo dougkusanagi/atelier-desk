@@ -36,6 +36,7 @@ type Props = {
   readOnly: boolean;
   onUpload: (files: File[], at: { x: number; y: number }, replaceId?: string) => void;
   shareToken?: string;
+  publicPath?: string;
 };
 export const CardView = memo(function CardView({
   card,
@@ -44,6 +45,7 @@ export const CardView = memo(function CardView({
   readOnly,
   onUpload,
   shareToken,
+  publicPath,
 }: Props) {
   const navigate = useNavigate(),
     fileInput = useRef<HTMLInputElement>(null),
@@ -428,7 +430,14 @@ export const CardView = memo(function CardView({
     return (
       <div
         className="board-card"
-        onDoubleClick={() => card.content.boardId && navigate('/quadro/' + card.content.boardId)}
+        onDoubleClick={() =>
+          card.content.boardId &&
+          navigate(
+            publicPath
+              ? publicPath + '?quadro=' + card.content.boardId
+              : '/quadro/' + card.content.boardId,
+          )
+        }
       >
         <div className="card-grip">
           <GripVertical size={13} />
@@ -443,7 +452,13 @@ export const CardView = memo(function CardView({
           data-no-drag
           className="open-board"
           disabled={!card.content.boardId}
-          onClick={() => navigate('/quadro/' + card.content.boardId)}
+          onClick={() =>
+            navigate(
+              publicPath
+                ? publicPath + '?quadro=' + card.content.boardId
+                : '/quadro/' + card.content.boardId,
+            )
+          }
         >
           {card.content.boardId ? 'Abrir quadro' : 'Criando quadro…'}
           <ArrowUpRight size={15} />

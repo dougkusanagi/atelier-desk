@@ -79,7 +79,7 @@ export async function boardRole(
   );
   if (['owner', 'admin'].includes(workspace.rows[0]?.role)) return { board, role: 'owner' };
   const member = await db.query<{ role: Role }>(
-    'SELECT role FROM board_members WHERE board_id=$1 AND user_id=$2',
+    'SELECT m.role FROM board_members m LEFT JOIN share_links s ON s.id=m.grant_id WHERE m.board_id=$1 AND m.user_id=$2 AND (m.grant_id IS NULL OR (s.revoked_at IS NULL AND (s.expires_at IS NULL OR s.expires_at>now())))',
     [boardId, userId],
   );
   if (member.rows[0]) return { board, role: member.rows[0].role };

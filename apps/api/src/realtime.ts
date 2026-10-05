@@ -21,6 +21,7 @@ export function registerRealtime(
         throw new ApiError(403, 'ORIGIN_DENIED', 'Origem não permitida.');
       const user = await currentUser(db, request),
         { id } = z.object({ id: uuid }).parse(request.params);
+      await documents.refresh(id);
       const access = await boardRole(db, id, user.id),
         room = await documents.get(id),
         clientId = crypto.randomUUID();

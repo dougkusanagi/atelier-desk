@@ -31,6 +31,17 @@ export async function createApp(
     loggerInstance: undefined,
   });
   const documents = new Documents(db);
+  let refreshBusy = false;
+  const refreshTimer = setInterval(() => {
+    if (refreshBusy) return;
+    refreshBusy = true;
+    void Promise.all([...documents.rooms.keys()].map((id) => documents.refresh(id)))
+      .catch((error) => app.log.error({ err: error }, 'Falha ao atualizar documentos'))
+      .finally(() => {
+        refreshBusy = false;
+      });
+  }, 500);
+  refreshTimer.unref();
   await app.register(helmet, { contentSecurityPolicy: false });
   await app.register(cookie, { secret: settings.cookieSecret });
   await app.register(rateLimit, { max: 300, timeWindow: '1 minute' });
@@ -84,9 +95,10 @@ export async function createApp(
   registerComments(app, db, settings);
   const storage = new Storage(settings);
   registerAssets(app, db, storage, settings);
-  const exportWorker=registerExports(app, db, documents, storage);
+  const exportWorker = registerExports(app, db, documents, storage);
   registerPreviews(app, db);
   app.addHook('onClose', async () => {
+    clearInterval(refreshTimer);
     await exportWorker.close();
     await Promise.all([...documents.rooms.values()].map((room) => room.queue));
     documents.close();

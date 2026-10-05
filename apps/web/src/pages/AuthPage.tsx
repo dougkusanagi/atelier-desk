@@ -36,7 +36,15 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' | 'forgot' | 're
           },
         );
         auth.setSession(result);
-        navigate(result.boardId ? '/quadro/' + result.boardId : '/', { replace: true });
+        const returnTo = params.get('voltar');
+        navigate(
+          returnTo?.startsWith('/') && !returnTo.startsWith('//')
+            ? returnTo
+            : result.boardId
+              ? '/quadro/' + result.boardId
+              : '/',
+          { replace: true },
+        );
       } else {
         await api(
           '/auth/' +

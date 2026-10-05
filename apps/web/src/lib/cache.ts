@@ -17,6 +17,17 @@ export const cache = {
   async delete(store: string, key: string) {
     await (await database).delete(store, key);
   },
+  async entries<T>(store: string, prefix: string): Promise<T[]> {
+    const db = await database;
+    const transaction = db.transaction(store, 'readonly');
+    const values: T[] = [];
+    let cursor = await transaction.store.openCursor(IDBKeyRange.bound(prefix, prefix + '\uffff'));
+    while (cursor) {
+      values.push(cursor.value as T);
+      cursor = await cursor.continue();
+    }
+    return values;
+  },
   async clear() {
     const db = await database;
     for (const store of ['documents', 'outbox', 'metadata', 'history']) await db.clear(store);

@@ -178,12 +178,17 @@ export function registerSharing(
         .object({ token: z.string().min(32).max(256) })
         .parse(request.params),
       grant = await resolveShare(db, rawToken, request, reply, published);
+    const { boardId = grant.board_id } = z
+      .object({ boardId: uuid.optional() })
+      .parse(request.query);
+    if (!(await shareContains(db, grant, boardId)))
+      throw new ApiError(404, 'NOT_FOUND', 'Quadro indisponível.');
     const board = await db.query<BoardRow>(
       'SELECT * FROM boards WHERE id=$1 AND deleted_at IS NULL',
-      [grant.board_id],
+      [boardId],
     );
     if (!board.rows[0]) throw new ApiError(404, 'NOT_FOUND', 'Quadro indisponível.');
-    const state = await documents.snapshot(grant.board_id);
+    const state = await documents.snapshot(boardId);
     const safeCards = [];
     for (const card of state.cards) {
       let content = card.content;
@@ -234,7 +239,7 @@ export function registerSharing(
         [board.rows[0].workspace_id, user.id, 'member'],
       );
       await tx.query(
-        'INSERT INTO board_members(board_id,user_id,role,grant_id) VALUES($1,$2,$3,$4) ON CONFLICT(board_id,user_id) DO UPDATE SET role=$3,grant_id=$4',
+        "INSERT INTO board_members(board_id,user_id,role,grant_id) VALUES($1,$2,$3,$4) ON CONFLICT(board_id,user_id) DO UPDATE SET role=$3,grant_id=$4 WHERE board_members.grant_id IS NOT NULL AND CASE board_members.role WHEN 'owner' THEN 3 WHEN 'editor' THEN 2 WHEN 'commenter' THEN 1 ELSE 0 END <= CASE EXCLUDED.role WHEN 'editor' THEN 2 WHEN 'commenter' THEN 1 ELSE 0 END",
         [grant.board_id, user.id, grant.role, grant.id],
       );
     });

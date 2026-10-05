@@ -73,6 +73,31 @@ export function useUploads(board: BoardDocument | null, boardId: string, userId:
     request.send(form);
   }
   useEffect(() => {
+    if (!board) return;
+    let disposed = false;
+    void cache
+      .entries<Upload>('metadata', key + ':')
+      .then((items) => {
+        if (disposed) return;
+        const pending = items
+          .filter((item) => {
+            const card = board.snapshot().cards.find((c) => c.id === item.cardId && !c.deletedAt);
+            if (!card || card.content.assetId === item.id) {
+              void cache.delete('metadata', key + ':' + item.id);
+              return false;
+            }
+            return true;
+          })
+          .map((item) => ({ ...item, status: 'queued' as const }));
+        setUploads(pending);
+        pending.forEach((item) => void send(item));
+      })
+      .catch(() => useCanvas.getState().notify('Não foi possível recuperar a fila de arquivos.'));
+    return () => {
+      disposed = true;
+    };
+  }, [board, key]);
+  useEffect(() => {
     const online = () =>
       uploads.filter((u) => u.status === 'queued').forEach((item) => void send(item));
     window.addEventListener('online', online);

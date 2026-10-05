@@ -93,6 +93,15 @@ export function Canvas({
       ),
     [state.cards, preview],
   );
+  const layers = useMemo(
+    () =>
+      new Map(
+        [...state.cards]
+          .sort((a, b) => a.z - b.z || a.id.localeCompare(b.id))
+          .map((c, i) => [c.id, i + 1]),
+      ),
+    [state.cards],
+  );
   const index = useMemo(() => {
     const tree = new RBush<SpatialItem>();
     tree.load(
@@ -479,8 +488,6 @@ export function Canvas({
     cancelAnimationFrame(frame.current);
     frame.current = requestAnimationFrame(() => {
       if (gesture.current !== g) return;
-      const dx = (p.x - g.start.x) / g.camera.zoom,
-        dy = (p.y - g.start.y) / g.camera.zoom;
       if (g.kind === 'pan')
         setCamera({
           ...g.camera,
@@ -505,39 +512,52 @@ export function Canvas({
         });
         setSelected([...new Set([...g.additive, ...hit.map((c) => c.id)])]);
       } else if ((g.kind === 'drag' || g.kind === 'resize') && !readOnly) {
-        const updates = new Map<string, Partial<Card>>();
-        let deltaX = dx,
-          deltaY = dy;
-        const first = g.originals.values().next().value as Card | undefined;
-        if (first && g.kind === 'drag') {
-          const snap = snapRect(
-            { ...first, x: first.x + dx, y: first.y + dy },
-            cards.filter((c) => !g.originals.has(c.id) && c.type !== 'column'),
-            current.zoom,
-            event.altKey,
-          );
-          deltaX = snap.x - first.x;
-          deltaY = snap.y - first.y;
-          setGuides(snap.guides);
-        }
-        g.originals.forEach((c) =>
-          updates.set(
-            c.id,
-            g.kind === 'resize'
-              ? {
-                  width: clamp(c.width + dx, c.type === 'color' ? 120 : 180, 2400),
-                  height: clamp(c.height + dy, 80, 2400),
-                }
-              : {
-                  x: clamp(c.x + deltaX, -WORLD_LIMIT, WORLD_LIMIT),
-                  y: clamp(c.y + deltaY, -WORLD_LIMIT, WORLD_LIMIT),
-                  layout: { kind: 'free' },
-                },
-          ),
-        );
+        const updates = gestureUpdates(g, p, current, event.altKey);
         setPreview(updates);
       }
     });
+  }
+  function gestureUpdates(g: Gesture, p: Point, current: Camera, alt: boolean) {
+    const dx = (p.x - g.start.x) / g.camera.zoom,
+      dy = (p.y - g.start.y) / g.camera.zoom;
+    const updates = new Map<string, Partial<Card>>();
+    let deltaX = dx,
+      deltaY = dy;
+    const first = g.originals.values().next().value as Card | undefined;
+    if (first && g.kind === 'drag') {
+      const snap = snapRect(
+        { ...first, x: first.x + dx, y: first.y + dy },
+        cards.filter((c) => !g.originals.has(c.id) && c.type !== 'column'),
+        current.zoom,
+        alt,
+      );
+      deltaX = snap.x - first.x;
+      deltaY = snap.y - first.y;
+      setGuides(snap.guides);
+    }
+    g.originals.forEach((c) =>
+      updates.set(
+        c.id,
+        g.kind === 'resize'
+          ? {
+              width: clamp(c.width + dx, c.type === 'color' ? 120 : 180, 2400),
+              height: clamp(
+                c.type === 'image' && !alt
+                  ? (c.height * clamp(c.width + dx, 180, 2400)) / c.width
+                  : c.height + dy,
+                80,
+                2400,
+              ),
+            }
+          : {
+              x: clamp(c.x + deltaX, -WORLD_LIMIT, WORLD_LIMIT),
+              y: clamp(c.y + deltaY, -WORLD_LIMIT, WORLD_LIMIT),
+              layout: { kind: 'free' },
+            },
+      ),
+    );
+
+    return updates;
   }
   function end(event: ReactPointerEvent<HTMLDivElement>) {
     pointers.current.delete(event.pointerId);
@@ -549,7 +569,8 @@ export function Canvas({
     if (touchTimer.current) clearTimeout(touchTimer.current);
     const g = gesture.current;
     if (g && !readOnly && (g.kind === 'drag' || g.kind === 'resize')) {
-      const updates = preview;
+      cancelAnimationFrame(frame.current);
+      const updates = gestureUpdates(g, point(event), useCanvas.getState().camera, event.altKey);
       board.transact(() => {
         updates.forEach((patch, key) => {
           const original = g.originals.get(key)!;
@@ -727,18 +748,35 @@ export function Canvas({
                   top: card.y,
                   width: card.width,
                   minHeight: card.height,
-                  zIndex: preview.has(card.id) ? 99999 : card.type === 'column' ? 0 : card.z,
+                  zIndex: preview.has(card.id)
+                    ? 99999
+                    : card.type === 'column'
+                      ? 0
+                      : layers.get(card.id),
                   background: card.type === 'color' ? card.content.hex : card.color,
                   '--selection-width': 2 / camera.zoom + 'px',
                   '--handle-scale': 1 / camera.zoom,
                 } as React.CSSProperties
               }
               initial={reduced ? false : { opacity: 0, scale: 0.96, y: 6 }}
-              animate={{ opacity: 1, scale: preview.has(card.id) && !reduced ? 1.025 : 1, y: 0 }}
+              animate={{
+                opacity: 1,
+                scale: preview.has(card.id) && !reduced ? 1.025 : 1,
+                rotate: preview.has(card.id) && !reduced ? 0.6 : 0,
+                y: 0,
+              }}
               exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.94 }}
-              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+              transition={
+                reduced
+                  ? { duration: 0 }
+                  : preview.has(card.id)
+                    ? { duration: 0.12, ease: [0.16, 1, 0.3, 1] }
+                    : { type: 'spring', stiffness: 380, damping: 28, mass: 0.7 }
+              }
             >
-              {renderCard(card)}
+              <MeasuredContent board={board} card={card} readOnly={readOnly}>
+                {renderCard(card)}
+              </MeasuredContent>
               {selected.includes(card.id) && !readOnly && card.type !== 'column' && (
                 <div className="resize-handle" data-resize aria-label="Redimensionar cartão" />
               )}
@@ -893,6 +931,44 @@ export function Canvas({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function MeasuredContent({
+  board,
+  card,
+  readOnly,
+  children,
+}: {
+  board: BoardDocument;
+  card: Card;
+  readOnly: boolean;
+  children: ReactNode;
+}) {
+  const element = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (readOnly || !['note', 'tasks', 'link', 'file'].includes(card.type) || !element.current)
+      return;
+    let timer: ReturnType<typeof setTimeout>;
+    const observer = new ResizeObserver((entries) => {
+      clearTimeout(timer);
+      const height = Math.ceil(entries[0].contentRect.height);
+      timer = setTimeout(() => {
+        const map = board.cards.get(card.id);
+        if (map && height > Number(map.get('height')) + 2 && height < 10000)
+          board.doc.transact(() => map.set('height', height), 'measurement');
+      }, 200);
+    });
+    observer.observe(element.current);
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, [board, card.id, card.type, readOnly]);
+  return (
+    <div ref={element} className="card-body">
+      {children}
     </div>
   );
 }

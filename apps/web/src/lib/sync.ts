@@ -22,7 +22,8 @@ export function useBoardSync(boardId: string, user: User) {
     [presence, setPresence] = useState<Presence[]>([]);
   const socket = useRef<WebSocket | null>(null),
     retry = useRef(() => {}),
-    epochRef = useRef(1);
+    epochRef = useRef(1),
+    lastPresence = useRef(0);
   useEffect(() => {
     let disposed = false,
       authorized = false,
@@ -71,7 +72,7 @@ export function useBoardSync(boardId: string, user: User) {
       }
       const durable = await persist();
       if (disposed) return;
-      if (authorized && socket.current?.readyState === 1) {
+      if (navigator.onLine && authorized && socket.current?.readyState === 1) {
         setStatus('saving');
         socket.current.send(JSON.stringify({ type: 'update', ...message }));
       } else if (durable) setStatus('offline');
@@ -80,7 +81,7 @@ export function useBoardSync(boardId: string, user: User) {
       if (origin === 'remote' || origin === 'bootstrap' || origin === persistence || disposed)
         return;
       localUpdates.push(update);
-      setStatus(navigator.onLine ? 'saving' : 'offline');
+      setStatus('saving');
       if (flushTimer) clearTimeout(flushTimer);
       flushTimer = setTimeout(() => void flush(), 150);
     };
@@ -224,7 +225,11 @@ export function useBoardSync(boardId: string, user: User) {
     void start();
     const online = () => retry.current(),
       offline = () => {
-        setStatus('offline');
+        socket.current?.close();
+        if (localUpdates.length) {
+          setStatus('saving');
+          void flush();
+        } else setStatus('offline');
       };
     window.addEventListener('online', online);
     window.addEventListener('offline', offline);
@@ -247,10 +252,9 @@ export function useBoardSync(boardId: string, user: User) {
       });
     };
   }, [boardId, user.id]);
-  let lastPresence = 0;
   const sendPresence = (point: { x: number; y: number }, selection: string[]) => {
-    if (Date.now() - lastPresence < 50 || socket.current?.readyState !== 1) return;
-    lastPresence = Date.now();
+    if (Date.now() - lastPresence.current < 50 || socket.current?.readyState !== 1) return;
+    lastPresence.current = Date.now();
     socket.current.send(JSON.stringify({ type: 'presence', ...point, selection }));
   };
   return {

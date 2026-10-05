@@ -21,14 +21,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return result.user;
       } catch (error) {
         if (error instanceof RequestError && error.status === 401) return null;
-        if (!navigator.onLine) {
+        if (!navigator.onLine || !(error instanceof RequestError)) {
           const cached = localStorage.getItem('atelier-user');
           return cached ? (JSON.parse(cached) as User) : null;
         }
         throw error;
       }
     },
-    retry: false,
+    retry: (count, error) => !(error instanceof RequestError) && navigator.onLine && count < 2,
+    retryDelay: 700,
     staleTime: 60_000,
   });
   const value: Auth = {

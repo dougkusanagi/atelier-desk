@@ -248,6 +248,7 @@ export function registerBoards(app: FastifyInstance, db: Database, documents: Do
     const user = await auth(request),
       { id } = z.object({ id: uuid }).parse(request.params),
       access = await boardRole(db, id, user.id);
+    await documents.refresh(id);
     const room = await documents.get(id);
     await db.query(
       'INSERT INTO board_visits(user_id,board_id) VALUES($1,$2) ON CONFLICT(user_id,board_id) DO UPDATE SET last_visited=now()',
@@ -296,6 +297,7 @@ export function registerBoards(app: FastifyInstance, db: Database, documents: Do
     const input = z
       .object({ description: z.string().max(200).default('Versão salva') })
       .parse(request.body ?? {});
+    await documents.refresh(id);
     const room = await documents.get(id),
       checkpoint = crypto.randomUUID();
     await db.query(
