@@ -277,17 +277,59 @@ export function registerBoards(app: FastifyInstance, db: Database, documents: Do
   });
   app.get('/api/v1/boards/:id/history', async (request) => {
     const user = await auth(request),
-      { id } = z.object({ id: uuid }).parse(request.params);
-    await boardRole(db, id, user.id);
+      { id } = z.object({ id: uuid }).parse(request.params),
+      { offset } = z
+        .object({ offset: z.coerce.number().int().min(0).max(1_000_000).default(0) })
+        .parse(request.query);
+    const access = await boardRole(db, id, user.id);
+    requireRole(access.role, 'editor');
     const result = await db.query(
-      'SELECT c.id,c.actor_id,c.label,c.undone,c.created_at,u.display_name FROM board_commands c LEFT JOIN users u ON u.id=c.actor_id WHERE c.board_id=$1 ORDER BY c.created_at DESC LIMIT 100',
-      [id],
+      "SELECT c.id,c.actor_id,c.label,c.undone,(c.undo_record IS NOT NULL AND c.undo_record<>'null'::jsonb) AS undoable,(c.redo_record IS NOT NULL AND c.redo_record<>'null'::jsonb) AS redoable,c.created_at,u.display_name FROM board_commands c LEFT JOIN users u ON u.id=c.actor_id WHERE c.board_id=$1 AND c.created_at>now()-interval '30 days' ORDER BY c.created_at DESC,c.id DESC LIMIT 101 OFFSET $2",
+      [id, offset],
     );
     const versions = await db.query(
       'SELECT id,description,sequence,created_at FROM board_versions WHERE board_id=$1 ORDER BY created_at DESC LIMIT 50',
       [id],
     );
-    return { items: result.rows, versions: versions.rows };
+    return {
+      items: result.rows.slice(0, 100),
+      versions: versions.rows,
+      nextOffset: result.rows.length > 100 ? offset + 100 : null,
+    };
+  });
+  app.post('/api/v1/boards/:id/history/step', async (request) => {
+    const user = await auth(request, true),
+      { id } = z.object({ id: uuid }).parse(request.params),
+      input = z.object({ redo: z.boolean().default(false), updateId: uuid }).parse(request.body);
+    const access = await boardRole(db, id, user.id);
+    requireRole(access.role, 'editor');
+    const record = input.redo ? 'redo_record' : 'undo_record',
+      order = input.redo ? 'reverted_at' : 'created_at';
+    const command = (
+      await db.query<{ id: string }>(
+        "SELECT id FROM board_commands WHERE board_id=$1 AND actor_id=$2 AND undone=$3 AND created_at>now()-interval '30 days' AND " +
+          record +
+          ' IS NOT NULL AND ' +
+          record +
+          "<>'null'::jsonb ORDER BY " +
+          order +
+          ' DESC,id DESC LIMIT 1',
+        [id, user.id, input.redo],
+      )
+    ).rows[0];
+    if (!command)
+      throw new ApiError(
+        409,
+        'HISTORY_EMPTY',
+        input.redo ? 'Nenhuma alteração para refazer.' : 'Nenhuma alteração para desfazer.',
+      );
+    return documents.revert(id, user.id, command.id, input.redo, input.updateId);
+  });
+  app.post('/api/v1/boards/:id/history/:commandId/revert', async (request) => {
+    const user = await auth(request, true),
+      { id, commandId } = z.object({ id: uuid, commandId: uuid }).parse(request.params),
+      input = z.object({ redo: z.boolean().default(false), updateId: uuid }).parse(request.body);
+    return documents.revert(id, user.id, commandId, input.redo, input.updateId);
   });
   app.post('/api/v1/boards/:id/checkpoints', async (request) => {
     const user = await auth(request, true),

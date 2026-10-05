@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   Check,
@@ -89,7 +89,6 @@ function LoadedBoard({ boardId }: { boardId: string }) {
     workspace = useWorkspace(),
     client = useQueryClient();
   const sync = useBoardSync(boardId, user!),
-    camera = useCanvas((s) => s.camera),
     selected = useCanvas((s) => s.selected),
     activeTool = useCanvas((s) => s.tool);
   const { setCamera, setSelected, setTool, notify } = useCanvas.getState();
@@ -156,9 +155,43 @@ function LoadedBoard({ boardId }: { boardId: string }) {
     [sync.board, sync.meta, readOnly, boardId, setSelected, workspace, notify],
   );
   const add = (type: CardType) => {
-    const at = useCanvas.getState().pointer ?? screenToWorld({ x: 300, y: 170 }, camera);
+    const at =
+      useCanvas.getState().pointer ??
+      screenToWorld({ x: 300, y: 170 }, useCanvas.getState().camera);
     void create(type, at);
   };
+  const historyBusy = useRef(false);
+  useEffect(() => {
+    if (!sync.board) return;
+    sync.board.historyFallback = (redo) => {
+      if (historyBusy.current) return;
+      if (sync.status !== 'saved') {
+        notify('O histórico anterior fica disponível ao reconectar e concluir o salvamento.');
+        return;
+      }
+      historyBusy.current = true;
+      void api<{ skipped: number }>('/boards/' + boardId + '/history/step', {
+        method: 'POST',
+        body: JSON.stringify({ redo, updateId: id() }),
+      })
+        .then((result) =>
+          notify(
+            result.skipped
+              ? 'Edições posteriores foram preservadas.'
+              : redo
+                ? 'Alteração refeita'
+                : 'Alteração desfeita',
+          ),
+        )
+        .catch((error) => notify(error.message))
+        .finally(() => {
+          historyBusy.current = false;
+        });
+    };
+    return () => {
+      if (sync.board) sync.board.historyFallback = undefined;
+    };
+  }, [sync.board, sync.status, boardId, notify]);
   const labels: Record<SaveState, string> = {
     loading: 'Carregando…',
     saving: 'Salvando…',
@@ -187,14 +220,26 @@ function LoadedBoard({ boardId }: { boardId: string }) {
     trail.unshift(ancestor);
     parent = ancestor.parent_id;
   }
-  const history = useQuery({
+  const history = useInfiniteQuery({
+    initialPageParam: 0,
     queryKey: ['history', boardId],
     enabled: panel === 'history',
-    queryFn: () =>
+    queryFn: ({ pageParam }) =>
       api<{
-        items: Array<{ id: string; label: string; display_name: string; created_at: string }>;
+        nextOffset: number | null;
+        items: Array<{
+          id: string;
+          actor_id: string;
+          undone: boolean;
+          undoable: boolean;
+          redoable: boolean;
+          label: string;
+          display_name: string;
+          created_at: string;
+        }>;
         versions: Array<{ id: string; description: string; created_at: string }>;
-      }>('/boards/' + boardId + '/history'),
+      }>('/boards/' + boardId + '/history?offset=' + pageParam),
+    getNextPageParam: (last) => last.nextOffset,
   });
   if (!sync.board || !sync.meta)
     return (
@@ -434,7 +479,8 @@ function LoadedBoard({ boardId }: { boardId: string }) {
           if (e.target.files)
             void uploads.upload(
               [...e.target.files],
-              useCanvas.getState().pointer ?? screenToWorld({ x: 200, y: 150 }, camera),
+              useCanvas.getState().pointer ??
+                screenToWorld({ x: 200, y: 150 }, useCanvas.getState().camera),
             );
           e.target.value = '';
         }}
@@ -557,19 +603,61 @@ function LoadedBoard({ boardId }: { boardId: string }) {
           <p>Carregando…</p>
         ) : (
           <div className="history-list">
-            {history.data?.versions.map((v) => (
+            {history.data?.pages[0].versions.map((v) => (
               <div key={v.id}>
                 <strong>{v.description}</strong>
                 <small>{new Date(v.created_at).toLocaleString('pt-BR')}</small>
               </div>
             ))}
-            {history.data?.items.map((item) => (
-              <div key={item.id}>
-                <strong>{item.label}</strong>
-                <span>{item.display_name}</span>
-                <small>{new Date(item.created_at).toLocaleString('pt-BR')}</small>
-              </div>
-            ))}
+            {history.data?.pages
+              .flatMap((page) => page.items)
+              .map((item) => (
+                <div key={item.id}>
+                  <strong>{item.label}</strong>
+                  <span>{item.display_name}</span>
+                  <small>{new Date(item.created_at).toLocaleString('pt-BR')}</small>
+                  {!readOnly &&
+                    item.actor_id === user!.id &&
+                    (item.undone ? item.redoable : item.undoable) && (
+                      <button
+                        className="secondary-button compact"
+                        disabled={sync.status !== 'saved'}
+                        onClick={() => {
+                          void api<{ skipped: number }>(
+                            '/boards/' + boardId + '/history/' + item.id + '/revert',
+                            {
+                              method: 'POST',
+                              body: JSON.stringify({ redo: item.undone, updateId: id() }),
+                            },
+                          )
+                            .then((result) => {
+                              sync.board!.undoManager.clear();
+                              notify(
+                                result.skipped
+                                  ? 'Edições posteriores foram preservadas. A parte aplicável foi desfeita.'
+                                  : item.undone
+                                    ? 'Alteração refeita'
+                                    : 'Alteração desfeita',
+                              );
+                              void history.refetch();
+                            })
+                            .catch((error) => notify(error.message));
+                        }}
+                      >
+                        {item.undone ? 'Refazer' : 'Desfazer'}
+                      </button>
+                    )}
+                </div>
+              ))}
+            {history.hasNextPage && (
+              <button
+                className="secondary-button"
+                disabled={history.isFetchingNextPage}
+                onClick={() => void history.fetchNextPage()}
+              >
+                {history.isFetchingNextPage ? 'Carregando…' : 'Carregar alterações anteriores'}
+              </button>
+            )}
           </div>
         )}
       </Dialog>

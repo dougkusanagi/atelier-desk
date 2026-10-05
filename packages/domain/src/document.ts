@@ -18,6 +18,7 @@ export class BoardDocument {
   readonly cards: Y.Map<Y.Map<unknown>>;
   readonly connectors: Y.Map<Y.Map<unknown>>;
   readonly undoManager: Y.UndoManager;
+  historyFallback?: (redo: boolean) => void;
   private listeners = new Set<() => void>();
   private dirtyCards = new Set<string>();
   private cache = new Map<string, { signature: string; card: Card }>();
@@ -304,10 +305,10 @@ export class BoardDocument {
     );
   }
   undo() {
-    this.undoManager.undo();
+    if (!this.undoManager.undo()) this.historyFallback?.(false);
   }
   redo() {
-    this.undoManager.redo();
+    if (!this.undoManager.redo()) this.historyFallback?.(true);
   }
   destroy() {
     this.doc.off('afterTransaction', this.refresh);

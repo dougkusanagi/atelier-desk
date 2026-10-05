@@ -136,14 +136,8 @@ export function Canvas({
     const ids = new Set(
       index.search({ minX: a.x, minY: a.y, maxX: b.x, maxY: b.y }).map((c) => c.id),
     );
-    return cards.filter(
-      (c) =>
-        ids.has(c.id) ||
-        selected.includes(c.id) ||
-        viewport.current
-          ?.querySelector('[data-card-id="' + c.id + '"]')
-          ?.contains(document.activeElement),
-    );
+    const focused = document.activeElement?.closest<HTMLElement>('[data-card-id]')?.dataset.cardId;
+    return cards.filter((c) => ids.has(c.id) || selected.includes(c.id) || c.id === focused);
   }, [cards, camera, size, selected, index]);
   useEffect(() => {
     const element = viewport.current;

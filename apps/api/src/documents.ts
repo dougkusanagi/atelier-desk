@@ -2,6 +2,7 @@ import * as Y from 'yjs';
 import { BoardDocument, type BoardState } from '@atelier/domain';
 import { z } from 'zod';
 import type { Database } from './db';
+import { serializeStack, deserializeStack, historyManager, type JournalChange } from './history';
 import { ApiError, boardRole } from './security';
 const finite = z.number().finite().min(-1_000_000).max(1_000_000);
 const cardSchema = z.object({
@@ -160,6 +161,7 @@ export class Documents {
     update: Uint8Array,
     epoch: number,
     updateId: string,
+    transform?: (board: BoardDocument, tx: Database) => Promise<void>,
   ) {
     const room = await this.get(boardId);
     const operation = room.queue.then(async () => {
@@ -192,12 +194,19 @@ export class Documents {
         if (repeated)
           return { sequence: Number(repeated.sequence), epoch, snapshot: stored.snapshot };
         const candidate = new Y.Doc({ gc: false });
-        const next = new BoardDocument(candidate);
+        const next = new BoardDocument(candidate),
+          capture = new Y.UndoManager(candidate, {
+            trackedOrigins: new Set(['record']),
+            captureTimeout: 0,
+          });
         try {
           Y.applyUpdate(candidate, new Uint8Array(stored.snapshot), 'remote');
           const before = next.snapshot();
-          Y.applyUpdate(candidate, update, 'remote');
+          const vector = Y.encodeStateVector(candidate);
+          Y.applyUpdate(candidate, update, 'record');
+          if (transform) await transform(next, tx);
           validateDocument(candidate);
+          const durableUpdate = Y.encodeStateAsUpdate(candidate, vector);
           const after = next.snapshot(),
             changes: unknown[] = [];
           for (const [collection, previousItems, nextItems] of [
@@ -211,7 +220,7 @@ export class Documents {
               const fields: Record<string, unknown> = {};
               if (!previous) fields.created = { before: null, after: item };
               else
-                for (const key of Object.keys(item)) {
+                for (const key of new Set([...Object.keys(previous), ...Object.keys(item)])) {
                   const a = (previous as unknown as Record<string, unknown>)[key],
                     b = (item as unknown as Record<string, unknown>)[key];
                   if (JSON.stringify(a) !== JSON.stringify(b))
@@ -235,18 +244,32 @@ export class Documents {
             snapshot = Buffer.from(Y.encodeStateAsUpdate(candidate));
           await tx.query(
             'INSERT INTO board_updates(id,board_id,epoch,sequence,actor_id,bytes,command_id) VALUES($1,$2,$3,$4,$5,$6,$1)',
-            [updateId, boardId, epoch, sequence, userId, Buffer.from(update)],
+            [updateId, boardId, epoch, sequence, userId, Buffer.from(durableUpdate)],
           );
           await tx.query(
             'UPDATE board_documents SET snapshot=$2,sequence=$3,updated_at=now() WHERE board_id=$1',
             [boardId, snapshot, sequence],
           );
           await tx.query('UPDATE boards SET updated_at=now() WHERE id=$1', [boardId]);
-          if (changes.length)
+          if (changes.length && !transform) {
             await tx.query(
-              'INSERT INTO board_commands(id,board_id,actor_id,label,changes) VALUES($1,$2,$3,$4,$5)',
-              [updateId, boardId, userId, 'Edição do quadro', JSON.stringify(changes)],
+              'UPDATE board_commands SET redo_record=NULL WHERE board_id=$1 AND actor_id=$2 AND undone=true',
+              [boardId, userId],
             );
+            await tx.query(
+              'INSERT INTO board_commands(id,board_id,actor_id,label,changes,undo_record) VALUES($1,$2,$3,$4,$5,$6)',
+              [
+                updateId,
+                boardId,
+                userId,
+                'Edição do quadro',
+                JSON.stringify(changes),
+                capture.undoStack.length
+                  ? JSON.stringify(serializeStack(capture.undoStack.at(-1)))
+                  : null,
+              ],
+            );
+          }
           await tx.query('DELETE FROM asset_references WHERE board_id=$1', [boardId]);
           for (const card of after.cards)
             if (card.content.assetId)
@@ -261,6 +284,7 @@ export class Documents {
             );
           return { sequence, epoch, snapshot };
         } finally {
+          capture.destroy();
           next.destroy();
         }
       });
@@ -284,6 +308,75 @@ export class Documents {
     });
     room.queue = operation.catch(() => {});
     return operation;
+  }
+  async revert(
+    boardId: string,
+    userId: string,
+    commandId: string,
+    redo: boolean,
+    updateId: string,
+  ) {
+    const room = await this.get(boardId);
+    let skipped = 0;
+    const result = await this.update(
+      boardId,
+      userId,
+      new Uint8Array([0, 0]),
+      room.epoch,
+      updateId,
+      async (board, tx) => {
+        const command = (
+          await tx.query<{
+            actor_id: string;
+            undone: boolean;
+            undo_record: unknown;
+            redo_record: unknown;
+            changes: JournalChange[];
+          }>(
+            "SELECT * FROM board_commands WHERE id=$1 AND board_id=$2 AND created_at>now()-interval '30 days' FOR UPDATE",
+            [commandId, boardId],
+          )
+        ).rows[0];
+        if (!command || command.actor_id !== userId)
+          throw new ApiError(404, 'HISTORY_NOT_FOUND', 'Esta alteração não pertence à sua conta.');
+        if (command.undone !== redo)
+          throw new ApiError(409, 'HISTORY_STATE', 'A alteração já foi desfeita ou refeita.');
+        const record = redo ? command.redo_record : command.undo_record;
+        if (!record)
+          throw new ApiError(
+            409,
+            'HISTORY_UNAVAILABLE',
+            'Esta alteração não possui uma inversa recuperável.',
+          );
+        const { manager, blocked } = historyManager(board, redo ? [] : command.changes);
+        const before =
+          JSON.stringify(board.snapshot().cards) + JSON.stringify(board.snapshot().connectors);
+        try {
+          (redo ? manager.redoStack : manager.undoStack).push(deserializeStack(record));
+          redo ? manager.redo() : manager.undo();
+          skipped = blocked;
+          if (
+            before ===
+            JSON.stringify(board.snapshot().cards) + JSON.stringify(board.snapshot().connectors)
+          )
+            skipped = Math.max(1, skipped);
+          await tx.query(
+            'UPDATE board_commands SET undone=$2,undo_record=$3,redo_record=$4,reverted_at=now() WHERE id=$1',
+            [
+              commandId,
+              !redo,
+              redo ? JSON.stringify(serializeStack(manager.undoStack.at(-1))) : command.undo_record,
+              redo || !manager.redoStack.length
+                ? null
+                : JSON.stringify(serializeStack(manager.redoStack.at(-1))),
+            ],
+          );
+        } finally {
+          manager.destroy();
+        }
+      },
+    );
+    return { ...result, skipped };
   }
   async refresh(boardId: string) {
     const room = await this.get(boardId);

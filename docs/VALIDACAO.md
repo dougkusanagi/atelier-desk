@@ -49,3 +49,10 @@
 - O UndoManager do quadro agora sobrevive à desmontagem de uma nota. Cada editor libera somente seus próprios listeners; o teste verifica a continuidade de undo.
 - O documento conserva referências dos cartões que não mudaram e só serializa os afetados. O cenário de mil cartões caiu de aproximadamente 11s para 4,1s no E2E local completo; a medição de navegação manteve p95 16,8ms.
 - A primeira execução remota do CI passou 6/7 E2E e encontrou timeout no bootstrap grande. A otimização e um prazo específico de 30s para essa fixture foram enviados; o resultado remoto atualizado será registrado após a nova execução.
+
+## Etapa 7 — histórico causal durável
+
+- `pnpm check`: 41 testes passaram; `pnpm test:e2e`: 9 cenários passaram.
+- Histórico paginado de 30 dias permite desfazer/refazer as próprias alterações após recarga e reinício da API. StackItems causais do Yjs são persistidos; alterações de outros participantes são preservadas.
+- Integrações verificam undo/redo de texto concorrente após reinício, proteção de um cartão criado localmente e posteriormente editado por outra pessoa e bloqueio de undo de outro autor.
+- A segunda execução remota de CI confirmou os fluxos funcionais, mas mediu p95 66,6ms no benchmark. O canvas foi ajustado para evitar consultas DOM por cartão e renders do editor a cada frame de câmera. O resultado local continua p95 16,8ms; a execução remota seguinte será registrada separadamente.

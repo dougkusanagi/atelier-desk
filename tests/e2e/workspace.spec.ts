@@ -256,3 +256,22 @@ test('cria e edita conexões com curva e rótulo', async ({ page }) => {
   await page.reload();
   await expect(page.locator('.connector-label')).toContainText('Inspiração para o projeto');
 });
+
+test('desfaz uma alteração pelo histórico durável após recarga', async ({ page }) => {
+  await register(page);
+  const id = await addNote(page, 'Uma ideia para desfazer depois.');
+  await page.reload();
+  await expect(page.locator('.save-state')).toHaveText('Salvo');
+  await page.getByRole('button', { name: 'Histórico', exact: true }).click();
+  const undo = page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Desfazer', exact: true })
+    .first();
+  await expect(undo).toBeEnabled();
+  await undo.click();
+  await expect(page.locator('.toast')).toContainText('Alteração desfeita');
+  await page.getByRole('button', { name: 'Fechar', exact: true }).click();
+  await expect(page.locator(`[data-card-id="${id}"] .tiptap`)).not.toContainText(
+    'Uma ideia para desfazer depois.',
+  );
+});
