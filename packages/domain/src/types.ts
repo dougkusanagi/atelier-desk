@@ -32,6 +32,8 @@ export type CardContent = {
   filename?: string;
   mime?: string;
   bytes?: number;
+  imageWidth?: number;
+  imageHeight?: number;
   hex?: string;
   boardId?: string;
   owned?: boolean;

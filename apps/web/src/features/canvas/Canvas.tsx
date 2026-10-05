@@ -478,7 +478,7 @@ export function Canvas({
     const target = event.target as HTMLElement;
     if (
       target.closest(
-        '[data-no-drag], button, input, textarea, [contenteditable="true"], a, audio, video',
+        '[data-no-drag], [role="menu"], [role="dialog"], button, input, textarea, [contenteditable="true"], a, audio, video',
       )
     )
       return;
@@ -736,7 +736,7 @@ export function Canvas({
               width: clamp(c.width + dx, c.type === 'color' ? 120 : 180, 2400),
               height: clamp(
                 c.type === 'image' && !alt
-                  ? (c.height * clamp(c.width + dx, 180, 2400)) / c.width
+                  ? ((c.height - 76) * clamp(c.width + dx, 120, 2400)) / c.width + 76
                   : c.height + dy,
                 80,
                 2400,

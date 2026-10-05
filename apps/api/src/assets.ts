@@ -163,8 +163,12 @@ export function registerAssets(
             .resize({ width: 800, height: 800, fit: 'inside', withoutEnlargement: true })
             .jpeg({ quality: 85 })
             .toBuffer();
-          if (mime === 'image/jpeg' || mime === 'image/png' || mime === 'image/webp')
+          if (['image/jpeg', 'image/png', 'image/webp', 'image/avif'].includes(mime)) {
             data = await sharp(data, { limitInputPixels: 100_000_000 }).rotate().toBuffer();
+            const normalized = await sharp(data).metadata();
+            width = normalized.width ?? width;
+            height = normalized.height ?? height;
+          }
         } catch (error) {
           if (error instanceof ApiError) throw error;
           throw new ApiError(

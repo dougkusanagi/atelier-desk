@@ -1,3 +1,5 @@
+import { ImageCrop } from './ImageCrop';
+import { TaskDetails } from './TaskDetails';
 import { openBoardWithTransition } from '../lib/boardTransition';
 import { lazy, Suspense, memo, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +18,7 @@ import {
   FolderOpen,
   GripVertical,
   ImagePlus,
+  Crop,
   MoreHorizontal,
   Plus,
   Trash2,
@@ -51,6 +54,7 @@ export const CardView = memo(function CardView({
   const navigate = useNavigate(),
     fileInput = useRef<HTMLInputElement>(null),
     [preview, setPreview] = useState(false),
+    [cropping, setCropping] = useState(false),
     [activated, setActivated] = useState(false),
     [loading, setLoading] = useState(false),
     [linkError, setLinkError] = useState('');
@@ -156,6 +160,21 @@ export const CardView = memo(function CardView({
             </Menu.Item>
           )}
           <Menu.Separator className="dropdown-separator" />
+          {card.type === 'image' && card.content.assetId && (
+            <>
+              <Menu.Item
+                className="dropdown-item"
+                onSelect={() => requestAnimationFrame(() => setCropping(true))}
+              >
+                <Crop size={14} />
+                Recortar imagem
+              </Menu.Item>
+              <Menu.Item className="dropdown-item" onSelect={() => fileInput.current?.click()}>
+                <ImagePlus size={14} />
+                Substituir imagem
+              </Menu.Item>
+            </>
+          )}
           <div className="card-colors" aria-label="Cor do cartão">
             {CARD_COLORS.map((color) => (
               <button
@@ -310,6 +329,12 @@ export const CardView = memo(function CardView({
                       });
                     }
                   }}
+                />
+                <TaskDetails
+                  task={task}
+                  boardId={boardId}
+                  readOnly={readOnly}
+                  onChange={(next) => board.putTask(card.id, next)}
                 />
                 {!readOnly && (
                   <div className="task-actions" data-no-drag>
@@ -590,13 +615,24 @@ export const CardView = memo(function CardView({
     return (
       <div className="image-card">
         <div className="image-card-actions">{actions}</div>
-        <img
-          src={assetUrl()}
-          alt={card.content.alt ?? card.content.caption ?? ''}
-          draggable={false}
-          loading="lazy"
-          onDoubleClick={() => setPreview(true)}
-        />
+        <div
+          className="image-frame"
+          style={{ height: Math.max(80, card.height - (readOnly ? 48 : 76)) }}
+        >
+          <img
+            src={url + (url.includes('?') ? '&' : '?') + 'variant=thumbnail'}
+            alt={card.content.alt ?? card.content.caption ?? ''}
+            draggable={false}
+            loading="lazy"
+            onDoubleClick={() => setPreview(true)}
+            style={{
+              width: 100 / (card.content.crop?.width ?? 1) + '%',
+              height: 100 / (card.content.crop?.height ?? 1) + '%',
+              left: (-100 * (card.content.crop?.x ?? 0)) / (card.content.crop?.width ?? 1) + '%',
+              top: (-100 * (card.content.crop?.y ?? 0)) / (card.content.crop?.height ?? 1) + '%',
+            }}
+          />
+        </div>
         <div className="image-caption">
           {caption}
           {!readOnly && (
@@ -611,6 +647,24 @@ export const CardView = memo(function CardView({
           )}
         </div>
         {picker}
+        <Dialog open={cropping} onClose={() => setCropping(false)} title="Recortar imagem">
+          {cropping && (
+            <ImageCrop
+              url={assetUrl()}
+              initial={card.content.crop}
+              onApply={(crop, aspect) => {
+                board.patch(card.id, {
+                  height: Math.min(
+                    2400,
+                    Math.max(120, card.width / ((aspect * crop.width) / crop.height) + 76),
+                  ),
+                  content: { crop },
+                });
+                setCropping(false);
+              }}
+            />
+          )}
+        </Dialog>
         <Dialog
           open={preview}
           onClose={() => setPreview(false)}

@@ -84,13 +84,28 @@ async function exportHtml(payload: ExportPayload, db: Database, storage: Storage
           .join('');
     else if (card.type === 'color')
       content = '<div class="swatch">' + title + '<span>' + escape(c.hex ?? '') + '</span></div>';
-    else if (card.type === 'image')
+    else if (card.type === 'image') {
+      const crop = c.crop ?? { x: 0, y: 0, width: 1, height: 1 };
       content =
         (images.has(card.id)
-          ? '<img src="' + images.get(card.id) + '" alt="' + escape(c.alt ?? '') + '">'
+          ? '<div style="position:relative;overflow:hidden;height:' +
+            Math.max(80, card.height - 48) +
+            'px"><img style="position:absolute;max-width:none;width:' +
+            100 / crop.width +
+            '%;height:' +
+            100 / crop.height +
+            '%;left:' +
+            (-100 * crop.x) / crop.width +
+            '%;top:' +
+            (-100 * crop.y) / crop.height +
+            '%;object-fit:fill" src="' +
+            images.get(card.id) +
+            '" alt="' +
+            escape(c.alt ?? '') +
+            '"></div>'
           : '<p>Imagem indisponível</p>') +
         (c.caption ? '<p class="caption">' + escape(c.caption) + '</p>' : '');
-    else if (card.type === 'drawing') content = drawingSvg(card);
+    } else if (card.type === 'drawing') content = drawingSvg(card);
     else if (card.type === 'column') content = '<h2>' + escape(c.title ?? 'Coluna') + '</h2>';
     else if (card.type === 'link')
       content =

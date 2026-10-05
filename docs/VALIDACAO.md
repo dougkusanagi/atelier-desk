@@ -89,3 +89,12 @@
 - PDF e ZIP incluem descendentes acessíveis apenas quando solicitado. Markdown recursivo usa caminhos relativos entre documentos, assets e desenhos; Markdown avulso usa links autorizados para arquivos.
 - Jobs mantêm heartbeat, respeitam cancelamento e conferem novamente a permissão dos quadros antes de disponibilizar o download.
 - Cada operação limita 100 quadros, 256 páginas/blocos e 50MB de dados estruturados; solicitações maiores recebem uma mensagem para exportar uma seleção.
+
+## Etapa 12 — recorte e detalhes das tarefas
+
+- `pnpm check`: 54 testes passaram. `pnpm test:e2e`: 12 cenários passaram; o novo cenário aplica recorte e confirma prazo e responsável após recarga.
+- Recorte não destrutivo por arraste e controles de percentual; original preservado e exportações reproduzem a área selecionada. Upload normaliza orientação e dimensões reais.
+- Tarefas permitem atribuição a participantes com acesso e prazo por data; limpar os campos remove os valores do documento colaborativo.
+- API rejeita recortes fora da imagem, datas impossíveis, responsáveis sem acesso e links executáveis em rich text. Os testes cobrem essas recusas.
+- Menus e diálogos portados não iniciam arraste do canvas; controles de tarefa não se sobrepõem.
+- CI remoto `37341481735` passou integralmente para a etapa anterior, incluindo exportações avançadas.

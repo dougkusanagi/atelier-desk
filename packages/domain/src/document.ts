@@ -201,7 +201,10 @@ export class BoardDocument {
         map = new Y.Map<unknown>();
         tasks.set(task.id, map);
       }
-      Object.entries(task).forEach(([k, v]) => v !== undefined && map.set(k, v));
+      Object.entries(task).forEach(([k, v]) => {
+        if (v === undefined) map.delete(k);
+        else map.set(k, v);
+      });
     });
   }
   removeTask(cardId: string, taskId: string) {

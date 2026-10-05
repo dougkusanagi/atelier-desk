@@ -53,13 +53,16 @@ export function useUploads(board: BoardDocument | null, boardId: string, userId:
           width: type === 'image' ? 320 : 280,
           height:
             type === 'image' && result.width && result.height
-              ? Math.max(120, (320 * result.height) / result.width + 48)
+              ? Math.max(120, (320 * result.height) / result.width + 76)
               : 220,
           content: {
             assetId: result.id,
             filename: result.filename,
             mime: result.mime,
             bytes: result.bytes,
+            imageWidth: result.width ?? undefined,
+            imageHeight: result.height ?? undefined,
+            crop: { x: 0, y: 0, width: 1, height: 1 },
             uploadState: 'ready',
             mediaKind: result.mime.startsWith('audio/') ? 'audio' : 'video',
           },

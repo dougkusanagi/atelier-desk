@@ -2,6 +2,27 @@ import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { BoardDocument } from './document';
 describe('documento colaborativo', () => {
+  it('remove prazo e responsável sem reintroduzir os campos ao sincronizar', () => {
+    const board = new BoardDocument();
+    const card = board.add('tasks', { x: 0, y: 0 });
+    const task = {
+      id: 'details',
+      text: 'Tarefa',
+      done: false,
+      order: 1,
+      dueDate: '2026-11-20',
+      assignee: crypto.randomUUID(),
+    };
+    board.putTask(card, task);
+    board.putTask(card, { ...task, dueDate: undefined, assignee: undefined });
+    const remote = new BoardDocument();
+    Y.applyUpdate(remote.doc, Y.encodeStateAsUpdate(board.doc));
+    const saved = remote.snapshot().cards[0].content.tasks?.find((task) => task.id === 'details');
+    expect(saved?.dueDate).toBeUndefined();
+    expect(saved?.assignee).toBeUndefined();
+    remote.destroy();
+    board.destroy();
+  });
   it('agrupa um movimento e permite desfazer e refazer', () => {
     const board = new BoardDocument(),
       a = board.add('note', { x: 10, y: 20 }),

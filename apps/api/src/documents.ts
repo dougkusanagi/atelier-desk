@@ -1,3 +1,4 @@
+import { validateContent } from './contentValidation';
 import * as Y from 'yjs';
 import { BoardDocument, type BoardState } from '@atelier/domain';
 import { z } from 'zod';
@@ -59,6 +60,7 @@ const connectorSchema = z.object({
   deletedAt: z.string().datetime().optional(),
 });
 export function validateDocument(doc: Y.Doc) {
+  validateContent(doc);
   for (const key of doc.share.keys())
     if (!['cards', 'connectors'].includes(key) && !key.startsWith('rich:'))
       throw new ApiError(400, 'INVALID_DOCUMENT', 'Estrutura de documento inválida.');
@@ -235,6 +237,25 @@ export class Documents {
               changes.push({ id: item.id, collection, fields });
             }
           }
+          const previousTasks = new Map(
+            before.cards
+              .flatMap((c) => c.content.tasks ?? [])
+              .map((task) => [task.id, task.assignee]),
+          );
+          for (const task of after.cards
+            .filter((c) => !c.deletedAt)
+            .flatMap((c) => c.content.tasks ?? []))
+            if (task.assignee && task.assignee !== previousTasks.get(task.id)) {
+              try {
+                await boardRole(tx, boardId, task.assignee);
+              } catch {
+                throw new ApiError(
+                  400,
+                  'ASSIGNEE_FORBIDDEN',
+                  'O responsável precisa ter acesso ao quadro.',
+                );
+              }
+            }
           const assetIds = after.cards
             .map((c) => c.content.assetId)
             .filter((v): v is string => Boolean(v));

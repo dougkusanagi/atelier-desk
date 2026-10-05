@@ -1796,8 +1796,8 @@ kbd {
   display: flex;
   gap: 1px;
   opacity: 0;
-  position: absolute;
-  right: 0;
+  position: static;
+  flex-shrink: 0;
   background: inherit;
 }
 .task-row:hover .task-actions,
@@ -2885,4 +2885,83 @@ kbd {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   pointer-events: none;
   z-index: 0;
+}
+
+.image-frame {
+  position: relative;
+  overflow: hidden;
+  cursor: zoom-in;
+}
+.image-frame img {
+  position: absolute;
+  display: block;
+  max-width: none;
+  object-fit: fill;
+}
+.crop-source {
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  margin: 16px 0;
+}
+.crop-source img {
+  display: block;
+  width: 100%;
+}
+.crop-rectangle {
+  position: absolute;
+  border: 2px solid white;
+  outline: 1px solid #191b1f;
+  box-shadow: 0 0 0 999px #0005;
+  cursor: move;
+}
+.crop-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.crop-controls label {
+  min-width: 0;
+}
+.crop-controls input {
+  width: 100%;
+}
+.task-details {
+  position: relative;
+  flex-shrink: 0;
+}
+.task-details summary {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  font-size: 10px;
+  list-style: none;
+  padding: 4px;
+}
+.task-detail-fields {
+  position: absolute;
+  z-index: 30;
+  top: 25px;
+  right: 0;
+  width: 220px;
+  background: var(--surface);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+  padding: 12px;
+}
+.task-detail-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  margin-bottom: 10px;
+}
+.task-detail-fields input,
+.task-detail-fields select {
+  width: 100%;
+  min-height: 32px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
 }

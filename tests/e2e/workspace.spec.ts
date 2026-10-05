@@ -345,3 +345,46 @@ test('mostra inserção em coluna e desagrupa filhos de coluna recolhida', async
   await page.getByLabel('Desfazer', { exact: true }).click();
   await expect(card).not.toBeVisible();
 });
+
+test('recorta uma imagem e mantém prazo e responsável após recarga', async ({ page }) => {
+  await register(page);
+  const boardId = page.url().split('/quadro/')[1];
+  await page.getByRole('button', { name: 'Imagem', exact: true }).click();
+  await page
+    .locator('input[type=file]')
+    .first()
+    .setInputFiles({
+      name: 'referencia.png',
+      mimeType: 'image/png',
+      buffer: await readFile(path.resolve('tests/fixtures/referencia.png')),
+    });
+  const image = page.locator('.card-image');
+  await expect(image.locator('img').first()).toBeVisible();
+  await image.getByRole('button', { name: 'Ações do cartão' }).click();
+  await page.getByRole('menuitem', { name: 'Recortar imagem' }).click();
+  const width = page.getByRole('slider', { name: /Largura do recorte/ });
+  await width.focus();
+  await width.press('ArrowLeft');
+  await page.getByRole('button', { name: 'Aplicar recorte' }).click();
+  await expect(page.locator('.save-state')).toHaveText('Salvo');
+  const session = await (await page.request.get('/api/v1/auth/me')).json();
+  const task = page.locator('.card-tasks .task-details').first();
+  await task.locator('summary').click();
+  await task.getByLabel('Prazo da tarefa').fill('2026-11-20');
+  await task.getByLabel('Responsável da tarefa', { exact: true }).selectOption(session.user.id);
+  await expect(page.locator('.save-state')).toHaveText('Salvo');
+  await page.reload();
+  await expect(page.locator('.save-state')).toHaveText('Salvo');
+  const bootstrap = await (await page.request.get(`/api/v1/boards/${boardId}/bootstrap`)).json(),
+    document = new BoardDocument();
+  Y.applyUpdate(document.doc, Buffer.from(bootstrap.update, 'base64'));
+  expect(
+    document.snapshot().cards.find((card) => card.type === 'image')?.content.crop?.width,
+  ).toBeCloseTo(0.99, 2);
+  const saved = document
+    .snapshot()
+    .cards.flatMap((card) => card.content.tasks ?? [])
+    .find((task) => task.dueDate === '2026-11-20');
+  expect(saved?.assignee).toBe(session.user.id);
+  document.destroy();
+});

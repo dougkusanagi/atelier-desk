@@ -45,6 +45,27 @@ describe('compartilhamento, arquivos, comentários e exportações', () => {
     await instance?.app.close();
     if (directory) await rm(directory, { recursive: true, force: true });
   });
+  it('recusa atribuir uma tarefa a uma pessoa sem acesso', async () => {
+    const document = new BoardDocument();
+    const task = document.add('tasks', { x: 0, y: 0 });
+    document.putTask(task, {
+      id: crypto.randomUUID(),
+      text: 'Tarefa privada',
+      done: false,
+      order: 1,
+      assignee: reader.id,
+    });
+    await expect(
+      instance.documents.update(
+        owner.boardId,
+        owner.id,
+        Y.encodeStateAsUpdate(document.doc),
+        1,
+        crypto.randomUUID(),
+      ),
+    ).rejects.toMatchObject({ code: 'ASSIGNEE_FORBIDDEN' });
+    document.destroy();
+  });
   it('publica snapshot sanitizado sem histórico, membros ou comentários', async () => {
     const created = await instance.app.inject({
       method: 'POST',
