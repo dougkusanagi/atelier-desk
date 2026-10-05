@@ -6,6 +6,7 @@ import {
   zoomAt,
   snapRect,
   effectiveCards,
+  endpointPoint,
 } from './geometry';
 import { createCard } from './types';
 describe('geometria do canvas', () => {
@@ -45,5 +46,20 @@ describe('geometria do canvas', () => {
     expect(cards.find((c) => c.id === child.id)?.y).toBe(164);
     column.content.collapsed = true;
     expect(effectiveCards([column, child])).toHaveLength(1);
+  });
+});
+
+describe('âncoras recolhidas', () => {
+  it('mantém a conexão na coluna sem alterar a referência ao filho', () => {
+    const column = createCard('column', { x: 100, y: 100 });
+    column.content.collapsed = true;
+    const child = createCard('note', { x: 0, y: 0 });
+    child.layout = { kind: 'column', columnId: column.id, order: 0 };
+    const endpoint = { cardId: child.id, side: 'right' as const };
+    expect(endpointPoint(endpoint, effectiveCards([column, child]), [column, child])).toEqual({
+      x: 420,
+      y: 128,
+    });
+    expect(endpoint.cardId).toBe(child.id);
   });
 });

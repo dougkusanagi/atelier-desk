@@ -303,3 +303,45 @@ test('reutiliza um template salvo e duplica o quadro pelo dashboard', async ({ p
   );
   await expect(page.locator('.card-note')).toContainText(['Conteúdo do template pessoal']);
 });
+
+test('mostra inserção em coluna e desagrupa filhos de coluna recolhida', async ({ page }) => {
+  await register(page);
+  const boardId = page.url().split('/quadro/')[1];
+  const session = await (await page.request.get('/api/v1/auth/me')).json();
+  const bootstrap = await (await page.request.get(`/api/v1/boards/${boardId}/bootstrap`)).json();
+  const document = new BoardDocument();
+  Y.applyUpdate(document.doc, Buffer.from(bootstrap.update, 'base64'));
+  document.remove(document.snapshot().cards.map((card) => card.id));
+  const columnId = document.add('column', { x: 570, y: 240 });
+  const cardId = document.add('note', { x: 40, y: 280 });
+  document.patch(cardId, { content: { text: 'Cartão para organizar' } });
+  const response = await page.request.post(`/api/v1/boards/${boardId}/commands`, {
+    headers: { 'X-CSRF-Token': session.csrfToken },
+    data: {
+      update: Buffer.from(Y.encodeStateAsUpdate(document.doc)).toString('base64'),
+      epoch: 1,
+      updateId: crypto.randomUUID(),
+    },
+  });
+  expect(response.ok()).toBe(true);
+  document.destroy();
+  await page.reload();
+  await expect(page.locator('.save-state')).toHaveText('Salvo');
+  const card = page.locator(`[data-card-id="${cardId}"]`),
+    column = page.locator(`[data-card-id="${columnId}"]`);
+  const from = await card.boundingBox(),
+    target = await column.boundingBox();
+  await page.mouse.move(from!.x + 10, from!.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(target!.x + 40, target!.y + 100, { steps: 12 });
+  await expect(page.locator('.column-placeholder')).toBeVisible();
+  await page.mouse.up();
+  await expect.poll(async () => (await card.boundingBox())!.x).toBeCloseTo(target!.x + 16, 0);
+  await column.getByRole('button', { name: 'Recolher coluna' }).click();
+  await expect(card).not.toBeVisible();
+  await column.click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('Delete');
+  await expect(card).toBeVisible();
+  await page.getByLabel('Desfazer', { exact: true }).click();
+  await expect(card).not.toBeVisible();
+});

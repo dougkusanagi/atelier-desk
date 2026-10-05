@@ -115,7 +115,11 @@ async function exportHtml(payload: ExportPayload, db: Database, storage: Storage
       'px;min-height:' +
       card.height +
       'px;z-index:' +
-      (card.type === 'column' ? 0 : card.z) +
+      (card.type === 'column'
+        ? 0
+        : [...cards]
+            .sort((a, b) => a.z - b.z || a.id.localeCompare(b.id))
+            .findIndex((c) => c.id === card.id) + 1) +
       ';background:' +
       escape(card.type === 'color' ? (c.hex ?? '#FFFFFF') : card.color) +
       '">' +
@@ -126,11 +130,11 @@ async function exportHtml(payload: ExportPayload, db: Database, storage: Storage
   const lines = payload.state.connectors
     .filter((c) => !c.deletedAt)
     .map((line) => {
-      const a = endpointPoint(line.source, cards),
-        b = endpointPoint(line.target, cards);
+      const a = endpointPoint(line.source, cards, payload.state.cards),
+        b = endpointPoint(line.target, cards, payload.state.cards);
       return (
         '<g><path d="' +
-        connectorPath(line, cards) +
+        connectorPath(line, cards, payload.state.cards) +
         '" fill="none" stroke="' +
         escape(line.color) +
         '" stroke-width="' +

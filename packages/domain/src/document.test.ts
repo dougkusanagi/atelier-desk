@@ -67,3 +67,22 @@ describe('documento colaborativo', () => {
     expect(b.snapshot().cards).toHaveLength(4);
   });
 });
+
+describe('remoção de colunas', () => {
+  it('desagrupa filhos de uma coluna recolhida e desfaz como uma operação', () => {
+    const board = new BoardDocument();
+    const column = board.add('column', { x: 100, y: 100 });
+    const child = board.add('note', { x: -40, y: -40 });
+    board.patch(child, { layout: { kind: 'column', columnId: column, order: 0 } });
+    board.patch(column, { content: { collapsed: true } });
+    board.remove([column]);
+    expect(board.snapshot().cards.find((c) => c.id === child)?.layout.kind).toBe('free');
+    expect(board.snapshot().cards.find((c) => c.id === child)?.x).toBe(116);
+    board.undo();
+    expect(board.snapshot().cards.find((c) => c.id === child)?.layout.kind).toBe('column');
+    expect(board.snapshot().cards.find((c) => c.id === column)?.deletedAt).toBeUndefined();
+    board.remove([column], true);
+    expect(board.snapshot().cards.every((c) => c.deletedAt)).toBe(true);
+    board.destroy();
+  });
+});

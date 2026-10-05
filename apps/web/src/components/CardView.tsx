@@ -1,3 +1,4 @@
+import { openBoardWithTransition } from '../lib/boardTransition';
 import { lazy, Suspense, memo, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as Menu from '@radix-ui/react-dropdown-menu';
@@ -142,6 +143,18 @@ export const CardView = memo(function CardView({
             <Pencil size={14} />
             Alterar largura
           </Menu.Item>
+          {card.type === 'column' && (
+            <Menu.Item
+              className="dropdown-item danger"
+              onSelect={() => {
+                board.remove([card.id], true);
+                notify('Coluna e cartões movidos para a lixeira. Desfazer');
+              }}
+            >
+              <Trash2 size={14} />
+              Excluir coluna e cartões
+            </Menu.Item>
+          )}
           <Menu.Separator className="dropdown-separator" />
           <div className="card-colors" aria-label="Cor do cartão">
             {CARD_COLORS.map((color) => (
@@ -355,6 +368,7 @@ export const CardView = memo(function CardView({
         <button
           data-no-drag
           className="icon-button"
+          disabled={readOnly}
           aria-label={card.content.collapsed ? 'Expandir coluna' : 'Recolher coluna'}
           onClick={() => patch({ collapsed: !card.content.collapsed })}
         >
@@ -434,10 +448,12 @@ export const CardView = memo(function CardView({
         className="board-card"
         onDoubleClick={() =>
           card.content.boardId &&
-          navigate(
-            publicPath
-              ? publicPath + '?quadro=' + card.content.boardId
-              : '/quadro/' + card.content.boardId,
+          openBoardWithTransition(card.id, () =>
+            navigate(
+              publicPath
+                ? publicPath + '?quadro=' + card.content.boardId
+                : '/quadro/' + card.content.boardId,
+            ),
           )
         }
       >
@@ -455,10 +471,12 @@ export const CardView = memo(function CardView({
           className="open-board"
           disabled={!card.content.boardId}
           onClick={() =>
-            navigate(
-              publicPath
-                ? publicPath + '?quadro=' + card.content.boardId
-                : '/quadro/' + card.content.boardId,
+            openBoardWithTransition(card.id, () =>
+              navigate(
+                publicPath
+                  ? publicPath + '?quadro=' + card.content.boardId
+                  : '/quadro/' + card.content.boardId,
+              ),
             )
           }
         >

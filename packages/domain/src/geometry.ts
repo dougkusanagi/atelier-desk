@@ -77,19 +77,25 @@ export function effectiveCards(cards: Card[]): Card[] {
     )
     .map((c) => positions.get(c.id) ?? c);
 }
-export function endpointPoint(endpoint: Endpoint, cards: Card[]): Point {
+export function endpointPoint(endpoint: Endpoint, cards: Card[], originals: Card[] = cards): Point {
   if (!('cardId' in endpoint)) return endpoint;
-  const original = cards.find((c) => c.id === endpoint.cardId);
-  if (!original) return { x: 0, y: 0 };
-  const card = original;
+  let card = cards.find((c) => c.id === endpoint.cardId);
+  if (!card) {
+    const child = originals.find((c) => c.id === endpoint.cardId);
+    if (child?.layout.kind === 'column') {
+      const columnId = child.layout.columnId;
+      card = cards.find((c) => c.id === columnId);
+    }
+  }
+  if (!card) return { x: 0, y: 0 };
   if (endpoint.side === 'top') return { x: card.x + card.width / 2, y: card.y };
   if (endpoint.side === 'right') return { x: card.x + card.width, y: card.y + card.height / 2 };
   if (endpoint.side === 'bottom') return { x: card.x + card.width / 2, y: card.y + card.height };
   return { x: card.x, y: card.y + card.height / 2 };
 }
-export function connectorPath(line: Connector, cards: Card[]): string {
-  const a = endpointPoint(line.source, cards),
-    b = endpointPoint(line.target, cards);
+export function connectorPath(line: Connector, cards: Card[], originals: Card[] = cards): string {
+  const a = endpointPoint(line.source, cards, originals),
+    b = endpointPoint(line.target, cards, originals);
   if (!line.curved) return 'M ' + a.x + ' ' + a.y + ' L ' + b.x + ' ' + b.y;
   const dx = Math.max(40, Math.abs(b.x - a.x) / 2);
   const c1 = line.controls?.[0] ?? { x: dx, y: 0 },

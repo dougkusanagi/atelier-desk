@@ -1,3 +1,4 @@
+import { effectiveCards } from './geometry';
 import * as Y from 'yjs';
 import { richNodes, plainRich, writeRich, textNodes } from './rich';
 import {
@@ -230,9 +231,38 @@ export class BoardDocument {
       )?.delete(strokeId),
     );
   }
-  remove(ids: string[]) {
+  remove(ids: string[], withChildren = false) {
+    const columns = new Set(
+      this.state.cards.filter((c) => ids.includes(c.id) && c.type === 'column').map((c) => c.id),
+    );
+    if (withChildren)
+      ids = [
+        ...new Set([
+          ...ids,
+          ...this.state.cards
+            .filter((c) => c.layout.kind === 'column' && columns.has(c.layout.columnId))
+            .map((c) => c.id),
+        ]),
+      ];
+    const positions = effectiveCards(
+      this.state.cards.map((c) =>
+        c.type === 'column' ? { ...c, content: { ...c.content, collapsed: false } } : c,
+      ),
+    );
     const deletedAt = new Date().toISOString();
     this.transact(() => {
+      for (const child of positions)
+        if (
+          child.layout.kind === 'column' &&
+          columns.has(child.layout.columnId) &&
+          !ids.includes(child.id)
+        )
+          this.patch(child.id, {
+            x: child.x,
+            y: child.y,
+            width: child.width,
+            layout: { kind: 'free' },
+          });
       ids.forEach((key) => this.cards.get(key)?.set('deletedAt', deletedAt));
       this.connectors.forEach((c) => {
         const source = c.get('source') as { cardId?: string },

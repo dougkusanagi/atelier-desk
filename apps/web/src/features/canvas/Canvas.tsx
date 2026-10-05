@@ -1,3 +1,4 @@
+import { useCameraMotion } from './cameraMotion';
 import {
   useCallback,
   useEffect,
@@ -54,6 +55,8 @@ type Gesture = {
   cardId?: string;
   additive: string[];
   moved: boolean;
+  velocity: Point;
+  sampleAt: number;
 };
 let clipboard: { cards: Card[]; connectors: Connector[] } | null = null;
 export function Canvas({
@@ -85,6 +88,8 @@ export function Canvas({
   const space = useRef(false),
     frame = useRef(0),
     touchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const edgeFrame = useRef(0),
+    edgeAlt = useRef(false);
   const [preview, setPreview] = useState<Map<string, Partial<Card>>>(new Map());
   const [marquee, setMarquee] = useState<Rect | null>(null),
     [size, setSize] = useState({ width: 1200, height: 800 });
@@ -92,6 +97,11 @@ export function Canvas({
   const [context, setContext] = useState<Point | null>(null),
     [connecting, setConnecting] = useState<string | null>(null);
   const reduced = useReducedMotion();
+  const {
+    stop: stopCamera,
+    smooth: smoothCamera,
+    inertia: panInertia,
+  } = useCameraMotion(Boolean(reduced));
   const lineDrag = useRef<{
     id: string;
     handle: 'source' | 'target' | 'first' | 'second';
@@ -101,12 +111,94 @@ export function Canvas({
   const [linePreview, setLinePreview] = useState<{ id: string; patch: Partial<Connector> } | null>(
     null,
   );
-  const cards = useMemo(
+  const layoutCards = useMemo(
     () =>
       effectiveCards(
         state.cards.map((c) => (preview.has(c.id) ? { ...c, ...preview.get(c.id) } : c)),
       ),
     [state.cards, preview],
+  );
+  const [columnSlot, setColumnSlot] = useState<{
+    columnId: string;
+    cardId: string;
+    beforeId: string | null;
+    y: number;
+    height: number;
+  } | null>(null);
+  const slotHover = useRef<{ key: string; timer?: ReturnType<typeof setTimeout> }>({ key: '' });
+  useEffect(() => {
+    const g = gesture.current;
+    const dragging =
+      g?.kind === 'drag' && g.originals.size === 1
+        ? layoutCards.find((c) => c.id === g.cardId)
+        : undefined;
+    const column =
+      dragging && dragging.type !== 'column'
+        ? layoutCards.find(
+            (c) =>
+              c.type === 'column' &&
+              !c.content.collapsed &&
+              c.id !== dragging.id &&
+              dragging.x + dragging.width / 2 > c.x &&
+              dragging.x + dragging.width / 2 < c.x + c.width &&
+              dragging.y + 20 > c.y &&
+              dragging.y + 20 < c.y + c.height,
+          )
+        : undefined;
+    const children = column
+      ? layoutCards
+          .filter(
+            (c) =>
+              c.layout.kind === 'column' &&
+              c.layout.columnId === column.id &&
+              c.id !== dragging!.id,
+          )
+          .sort((a, b) => a.y - b.y)
+      : [];
+    const before = children.find((c) => c.y + c.height / 2 > dragging!.y + 20);
+    const key = column ? column.id + ':' + (before?.id ?? 'end') : '';
+    if (key === slotHover.current.key) return;
+    if (slotHover.current.timer) clearTimeout(slotHover.current.timer);
+    slotHover.current.key = key;
+    if (!column || !dragging) {
+      setColumnSlot(null);
+      return;
+    }
+    slotHover.current.timer = setTimeout(
+      () =>
+        setColumnSlot({
+          columnId: column.id,
+          cardId: dragging.id,
+          beforeId: before?.id ?? null,
+          y:
+            before?.y ??
+            (children.length ? children.at(-1)!.y + children.at(-1)!.height + 12 : column.y + 64),
+          height: dragging.height,
+        }),
+      120,
+    );
+  }, [layoutCards, preview]);
+  useEffect(
+    () => () => {
+      if (slotHover.current.timer) clearTimeout(slotHover.current.timer);
+    },
+    [],
+  );
+  const cards = useMemo(
+    () =>
+      columnSlot
+        ? layoutCards.map((c) =>
+            c.id === columnSlot.columnId
+              ? { ...c, height: c.height + columnSlot.height + 12 }
+              : c.layout.kind === 'column' &&
+                  c.layout.columnId === columnSlot.columnId &&
+                  c.id !== columnSlot.cardId &&
+                  c.y >= columnSlot.y
+                ? { ...c, y: c.y + columnSlot.height + 12 }
+                : c,
+          )
+        : layoutCards,
+    [layoutCards, columnSlot],
   );
   const layers = useMemo(
     () =>
@@ -150,6 +242,7 @@ export function Canvas({
     const wheel = (event: WheelEvent) => {
       if ((event.target as HTMLElement).closest('[data-scrollable]')) return;
       event.preventDefault();
+      stopCamera();
       const factor = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? element.clientHeight : 1;
       const current = useCanvas.getState().camera;
       if (event.ctrlKey || event.metaKey) {
@@ -173,45 +266,33 @@ export function Canvas({
       observer.disconnect();
       element.removeEventListener('wheel', wheel);
       cancelAnimationFrame(frame.current);
+      cancelAnimationFrame(edgeFrame.current);
     };
-  }, [setCamera]);
+  }, [setCamera, stopCamera]);
   const point = (event: { clientX: number; clientY: number }) => {
     const box = viewport.current!.getBoundingClientRect();
     return { x: event.clientX - box.left, y: event.clientY - box.top };
   };
   const cancel = useCallback(() => {
+    stopCamera();
+    cancelAnimationFrame(edgeFrame.current);
+    edgeFrame.current = 0;
     gesture.current = null;
     lineDrag.current = null;
     setLinePreview(null);
     pinch.current = null;
     pointers.current.clear();
     setPreview(new Map());
+    setColumnSlot(null);
+    if (slotHover.current.timer) clearTimeout(slotHover.current.timer);
+    slotHover.current.key = '';
     setMarquee(null);
     setGuides([]);
     if (touchTimer.current) clearTimeout(touchTimer.current);
-  }, []);
+  }, [stopCamera]);
   const remove = useCallback(() => {
     if (readOnly || !selected.length) return;
-    board.transact(() => {
-      for (const column of state.cards.filter(
-        (c) => selected.includes(c.id) && c.type === 'column',
-      )) {
-        for (const child of cards.filter(
-          (c) =>
-            c.layout.kind === 'column' &&
-            c.layout.columnId === column.id &&
-            !selected.includes(c.id),
-        )) {
-          board.patch(child.id, {
-            x: child.x,
-            y: child.y,
-            width: child.width,
-            layout: { kind: 'free' },
-          });
-        }
-      }
-      board.remove(selected);
-    });
+    board.remove(selected);
     setSelected([]);
     notify('Itens movidos para a lixeira. Desfazer');
   }, [board, selected, state.cards, cards, readOnly, setSelected, notify]);
@@ -355,7 +436,7 @@ export function Canvas({
         else setSelected([board.add(type, at)]);
       } else if (event.key === '+' || event.key === '=' || event.key === '-') {
         event.preventDefault();
-        setCamera(
+        smoothCamera(
           zoomAt(
             camera,
             { x: size.width / 2, y: size.height / 2 },
@@ -363,8 +444,8 @@ export function Canvas({
           ),
         );
       } else if (event.key === '0')
-        setCamera(zoomAt(camera, { x: size.width / 2, y: size.height / 2 }, 1));
-      else if (event.shiftKey && event.key === '!') setCamera(fitCamera(cards, size));
+        smoothCamera(zoomAt(camera, { x: size.width / 2, y: size.height / 2 }, 1));
+      else if (event.shiftKey && event.key === '!') smoothCamera(fitCamera(cards, size));
     };
     const up = (event: KeyboardEvent) => {
       if (event.code === 'Space') space.current = false;
@@ -390,8 +471,10 @@ export function Canvas({
     setCamera,
     setSelected,
     setTool,
+    smoothCamera,
   ]);
   function start(event: ReactPointerEvent<HTMLDivElement>) {
+    stopCamera();
     const target = event.target as HTMLElement;
     if (
       target.closest(
@@ -470,6 +553,8 @@ export function Canvas({
       cardId,
       additive: event.shiftKey ? selected : [],
       moved: false,
+      velocity: { x: 0, y: 0 },
+      sampleAt: performance.now(),
     };
     if (event.pointerType === 'touch' && cardId && !readOnly) {
       gesture.current.kind = 'pan';
@@ -534,8 +619,8 @@ export function Canvas({
           [connection.handle]: hit && !event.altKey ? { cardId: hit.id, side } : world,
         };
       } else {
-        const a = endpointPoint(original.source, cards),
-          b = endpointPoint(original.target, cards),
+        const a = endpointPoint(original.source, cards, state.cards),
+          b = endpointPoint(original.target, cards, state.cards),
           dx = Math.max(40, Math.abs(b.x - a.x) / 2),
           controls = original.controls
             ? ([...original.controls] as [Point, Point])
@@ -553,11 +638,44 @@ export function Canvas({
     }
     const g = gesture.current;
     if (!g) return;
+    const now = performance.now(),
+      dt = now - g.sampleAt;
+    if (dt > 0 && g.kind === 'pan')
+      g.velocity = {
+        x: clamp((p.x - g.last.x) / dt, -3, 3),
+        y: clamp((p.y - g.last.y) / dt, -3, 3),
+      };
+    g.sampleAt = now;
     g.last = p;
     const distance = Math.hypot(p.x - g.start.x, p.y - g.start.y);
     if (distance > 4) g.moved = true;
     if (distance > 8 && touchTimer.current) clearTimeout(touchTimer.current);
     if (g.kind === 'pending' && distance > 4) g.kind = g.cardId ? 'drag' : 'marquee';
+    edgeAlt.current = event.altKey;
+    if (g.kind === 'drag' && !readOnly && !edgeFrame.current) {
+      let previous = performance.now();
+      const tick = (now: number) => {
+        edgeFrame.current = 0;
+        if (gesture.current !== g || g.kind !== 'drag') return;
+        const velocity = (position: number, length: number) =>
+          position < 32
+            ? 0.6 * clamp((32 - position) / 32, 0, 1)
+            : position > length - 32
+              ? -0.6 * clamp((position - length + 32) / 32, 0, 1)
+              : 0;
+        const vx = velocity(g.last.x, viewport.current!.clientWidth),
+          vy = velocity(g.last.y, viewport.current!.clientHeight);
+        if (!vx && !vy) return;
+        const dt = Math.min(32, now - previous);
+        previous = now;
+        const current = useCanvas.getState().camera,
+          next = { ...current, x: current.x + vx * dt, y: current.y + vy * dt };
+        setCamera(next);
+        setPreview(gestureUpdates(g, g.last, next, edgeAlt.current));
+        edgeFrame.current = requestAnimationFrame(tick);
+      };
+      edgeFrame.current = requestAnimationFrame(tick);
+    }
     cancelAnimationFrame(frame.current);
     frame.current = requestAnimationFrame(() => {
       if (gesture.current !== g) return;
@@ -591,8 +709,10 @@ export function Canvas({
     });
   }
   function gestureUpdates(g: Gesture, p: Point, current: Camera, alt: boolean) {
-    const dx = (p.x - g.start.x) / g.camera.zoom,
-      dy = (p.y - g.start.y) / g.camera.zoom;
+    const from = screenToWorld(g.start, g.camera),
+      to = screenToWorld(p, current),
+      dx = to.x - from.x,
+      dy = to.y - from.y;
     const updates = new Map<string, Partial<Card>>();
     let deltaX = dx,
       deltaY = dy;
@@ -633,6 +753,8 @@ export function Canvas({
     return updates;
   }
   function end(event: ReactPointerEvent<HTMLDivElement>) {
+    cancelAnimationFrame(edgeFrame.current);
+    edgeFrame.current = 0;
     if (lineDrag.current) {
       if (!readOnly) board.patchConnector(lineDrag.current.id, lineDrag.current.patch);
       lineDrag.current = null;
@@ -690,8 +812,12 @@ export function Canvas({
         });
       });
     } else if (g && !g.cardId && !g.moved && !g.additive.length) setSelected([]);
+    if (g?.kind === 'pan' && g.moved && performance.now() - g.sampleAt < 80) panInertia(g.velocity);
     gesture.current = null;
     setPreview(new Map());
+    setColumnSlot(null);
+    if (slotHover.current.timer) clearTimeout(slotHover.current.timer);
+    slotHover.current.key = '';
     setMarquee(null);
     setGuides([]);
   }
@@ -774,12 +900,12 @@ export function Canvas({
             .map((stored) => {
               const line =
                 linePreview?.id === stored.id ? { ...stored, ...linePreview.patch } : stored;
-              const a = endpointPoint(line.source, cards),
-                b = endpointPoint(line.target, cards);
+              const a = endpointPoint(line.source, cards, state.cards),
+                b = endpointPoint(line.target, cards, state.cards);
               return (
                 <g key={line.id} data-no-drag>
                   <path
-                    d={connectorPath(line, cards)}
+                    d={connectorPath(line, cards, state.cards)}
                     fill="none"
                     stroke="transparent"
                     strokeWidth={12 / camera.zoom}
@@ -796,7 +922,7 @@ export function Canvas({
                     onClick={() => setSelected([line.id])}
                   />
                   <path
-                    d={connectorPath(line, cards)}
+                    d={connectorPath(line, cards, state.cards)}
                     fill="none"
                     stroke={selected.includes(line.id) ? 'var(--accent)' : line.color}
                     strokeWidth={line.width}
@@ -899,8 +1025,8 @@ export function Canvas({
               style={
                 {
                   position: 'absolute',
-                  left: card.x,
-                  top: card.y,
+                  left: 0,
+                  top: 0,
                   width: card.width,
                   minHeight: card.height,
                   zIndex: preview.has(card.id)
@@ -913,20 +1039,31 @@ export function Canvas({
                   '--handle-scale': 1 / camera.zoom,
                 } as React.CSSProperties
               }
-              initial={reduced ? false : { opacity: 0, scale: 0.96, y: 6 }}
+              initial={reduced ? false : { opacity: 0, scale: 0.96, x: card.x, y: card.y + 6 }}
               animate={{
                 opacity: 1,
                 scale: preview.has(card.id) && !reduced ? 1.025 : 1,
                 rotate: preview.has(card.id) && !reduced ? 0.6 : 0,
-                y: 0,
+                x: card.x,
+                y: card.y,
               }}
               exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.94 }}
               transition={
                 reduced
                   ? { duration: 0 }
-                  : preview.has(card.id)
-                    ? { duration: 0.12, ease: [0.16, 1, 0.3, 1] }
-                    : { type: 'spring', stiffness: 380, damping: 28, mass: 0.7 }
+                  : {
+                      ...(preview.has(card.id)
+                        ? { duration: 0.1, ease: [0.16, 1, 0.3, 1] as const }
+                        : { type: 'spring' as const, duration: 0.26, bounce: 0.12 }),
+                      x: { duration: 0 },
+                      y: {
+                        duration:
+                          columnSlot && card.layout.kind === 'column' && !preview.has(card.id)
+                            ? 0.16
+                            : 0,
+                        ease: [0.16, 1, 0.3, 1],
+                      },
+                    }
               }
             >
               <MeasuredContent board={board} card={card} readOnly={readOnly}>
@@ -937,6 +1074,23 @@ export function Canvas({
               )}
             </motion.div>
           ))}
+        </AnimatePresence>
+        <AnimatePresence>
+          {columnSlot && (
+            <motion.div
+              className="column-placeholder"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: reduced ? 0 : 0.1 }}
+              style={{
+                left: (layoutCards.find((c) => c.id === columnSlot.columnId)?.x ?? 0) + 16,
+                top: columnSlot.y,
+                width: (layoutCards.find((c) => c.id === columnSlot.columnId)?.width ?? 320) - 32,
+                height: columnSlot.height,
+              }}
+            />
+          )}
         </AnimatePresence>
         {marquee && (
           <div
@@ -950,17 +1104,26 @@ export function Canvas({
             }}
           />
         )}
-        {guides.map((g, i) => (
-          <div
-            key={i}
-            className={'snap-guide ' + g.axis}
-            style={
-              g.axis === 'x'
-                ? { left: g.value, width: 1 / camera.zoom }
-                : { top: g.value, height: 1 / camera.zoom }
-            }
-          />
-        ))}
+        <AnimatePresence initial={false}>
+          {guides.map((g) => (
+            <motion.div
+              key={g.axis + ':' + g.value}
+              className={'snap-guide ' + g.axis}
+              initial={{ opacity: reduced ? 0.85 : 0 }}
+              animate={{ opacity: 0.85 }}
+              exit={{ opacity: 0 }}
+              transition={{
+                duration: reduced ? 0 : 0.08,
+                opacity: { duration: reduced ? 0 : 0.12 },
+              }}
+              style={
+                g.axis === 'x'
+                  ? { left: g.value, width: 1 / camera.zoom }
+                  : { top: g.value, height: 1 / camera.zoom }
+              }
+            />
+          ))}
+        </AnimatePresence>
       </div>
       {collaborators.map((peer, index) => {
         const point = worldToScreen(peer, camera),
@@ -995,7 +1158,9 @@ export function Canvas({
           title="Diminuir zoom"
           aria-label="Diminuir zoom"
           onClick={() =>
-            setCamera(zoomAt(camera, { x: size.width / 2, y: size.height / 2 }, camera.zoom / 1.25))
+            smoothCamera(
+              zoomAt(camera, { x: size.width / 2, y: size.height / 2 }, camera.zoom / 1.25),
+            )
           }
         >
           <Minus size={16} />
@@ -1003,7 +1168,7 @@ export function Canvas({
         <button
           className="zoom-value"
           title="Restaurar zoom"
-          onClick={() => setCamera(zoomAt(camera, { x: size.width / 2, y: size.height / 2 }, 1))}
+          onClick={() => smoothCamera(zoomAt(camera, { x: size.width / 2, y: size.height / 2 }, 1))}
         >
           {Math.round(camera.zoom * 100)}%<ChevronDown size={12} />
         </button>
@@ -1011,7 +1176,9 @@ export function Canvas({
           title="Aumentar zoom"
           aria-label="Aumentar zoom"
           onClick={() =>
-            setCamera(zoomAt(camera, { x: size.width / 2, y: size.height / 2 }, camera.zoom * 1.25))
+            smoothCamera(
+              zoomAt(camera, { x: size.width / 2, y: size.height / 2 }, camera.zoom * 1.25),
+            )
           }
         >
           <Plus size={16} />
@@ -1020,7 +1187,7 @@ export function Canvas({
         <button
           title="Enquadrar todos"
           aria-label="Enquadrar todos"
-          onClick={() => setCamera(fitCamera(cards, size))}
+          onClick={() => smoothCamera(fitCamera(cards, size))}
         >
           <Maximize size={16} />
         </button>

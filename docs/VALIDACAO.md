@@ -72,3 +72,12 @@
 - E2E verifica template pessoal e duplicação pelo dashboard; integrações verificam hierarquia e isolamento de favoritos.
 
 - Exportações respeitam a opção do link aceito também no job e no download; uma integração verifica a recusa quando a exportação está desativada.
+
+## Etapa 10 — interações do canvas
+
+- 47 testes de domínio/integração e 11 E2E passaram. Benchmark local: p95 16,7ms com 1.007 cartões e 27 elementos de cartão.
+- Zoom por botões anima em 180ms; pan com ponteiro tem decaimento exponencial de 180ms, para abaixo de 10px/s ou após 700ms e respeita movimento reduzido. Wheel mantém a inércia nativa.
+- Autopan inicia na margem de 32px e limita a velocidade a 600px/s. Inserção em coluna aguarda 120ms de permanência, abre espaço e mostra placeholder antes de confirmar no drop.
+- A abertura de subquadros usa uma cópia visual não interativa por 280ms. Guias têm fade e o drop retorna escala/rotação com spring.
+- Filhos de colunas recolhidas usam a coluna como proxy visual das conexões. A remoção padrão desagrupa filhos e pode ser desfeita; a opção explícita exclui coluna e cartões.
+- E2E verifica placeholder, inserção, recolhimento, remoção e undo.
