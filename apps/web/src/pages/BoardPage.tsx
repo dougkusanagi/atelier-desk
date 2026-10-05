@@ -29,6 +29,11 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  AlignStartVertical,
+  AlignCenterVertical,
+  AlignEndVertical,
+  AlignHorizontalSpaceAround,
+  AlignVerticalSpaceAround,
   Trash2,
 } from 'lucide-react';
 import {
@@ -37,12 +42,13 @@ import {
   type Point,
   effectiveCards,
   screenToWorld,
-  worldToScreen,
+  arrangeCards,
+  type Arrangement,
   id,
 } from '@atelier/domain';
 import { api, download, type BoardMeta } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { useBoardSync, type SaveState } from '../lib/sync';
+import { useBoardSync, type Presence, type SaveState } from '../lib/sync';
 import { useUploads } from '../lib/uploads';
 import { useWorkspace } from '../components/Shell';
 import { Canvas } from '../features/canvas/Canvas';
@@ -413,25 +419,8 @@ function LoadedBoard({ boardId }: { boardId: string }) {
             onUpload={uploads.upload}
             onCreate={(type, at) => void create(type, at)}
             onPresence={sync.sendPresence}
+            collaborators={sync.presence}
           />
-          {!linear &&
-            sync.presence.map((p, i) => {
-              const screen = worldToScreen(p, camera);
-              return (
-                <div
-                  className="remote-cursor"
-                  key={p.clientId}
-                  style={{
-                    left: screen.x,
-                    top: screen.y + 150,
-                    color: ['#A45040', '#497846', '#6557A8', '#287E9A'][i % 4],
-                  }}
-                >
-                  <MousePointer2 size={18} fill="currentColor" />
-                  <span>{p.user.name}</span>
-                </div>
-              );
-            })}
         </div>
       </div>
       <input
@@ -598,6 +587,7 @@ function BoardContent({
   onUpload,
   onCreate,
   onPresence,
+  collaborators,
 }: {
   board: BoardDocument;
   boardId: string;
@@ -606,28 +596,14 @@ function BoardContent({
   onUpload: (files: File[], point: Point, replaceId?: string) => void;
   onCreate: (type: CardType, point: Point) => void;
   onPresence: (point: Point, selection: string[]) => void;
+  collaborators: Presence[];
 }) {
   const state = useSyncExternalStore(board.subscribe, board.snapshot),
     selection = useCanvas((s) => s.selected);
   const cards = effectiveCards(state.cards);
-  const align = (mode: 'left' | 'center' | 'right') => {
-    const chosen = cards.filter((c) => selection.includes(c.id));
-    if (chosen.length < 2) return;
-    const left = Math.min(...chosen.map((c) => c.x)),
-      right = Math.max(...chosen.map((c) => c.x + c.width));
-    board.transact(() =>
-      chosen.forEach((c) =>
-        board.patch(c.id, {
-          x:
-            mode === 'left'
-              ? left
-              : mode === 'right'
-                ? right - c.width
-                : (left + right - c.width) / 2,
-          layout: { kind: 'free' },
-        }),
-      ),
-    );
+  const align = (mode: Arrangement) => {
+    const patches = arrangeCards(cards, selection, mode);
+    board.transact(() => patches.forEach((patch, id) => board.patch(id, patch)));
   };
   return (
     <>
@@ -641,6 +617,29 @@ function BoardContent({
           </button>
           <button aria-label="Alinhar à direita" onClick={() => align('right')}>
             <AlignRight size={16} />
+          </button>
+          <button aria-label="Alinhar ao topo" onClick={() => align('top')}>
+            <AlignStartVertical size={16} />
+          </button>
+          <button aria-label="Alinhar ao meio" onClick={() => align('middle')}>
+            <AlignCenterVertical size={16} />
+          </button>
+          <button aria-label="Alinhar à base" onClick={() => align('bottom')}>
+            <AlignEndVertical size={16} />
+          </button>
+          <button
+            aria-label="Distribuir horizontalmente"
+            disabled={selection.length < 3}
+            onClick={() => align('horizontal')}
+          >
+            <AlignHorizontalSpaceAround size={16} />
+          </button>
+          <button
+            aria-label="Distribuir verticalmente"
+            disabled={selection.length < 3}
+            onClick={() => align('vertical')}
+          >
+            <AlignVerticalSpaceAround size={16} />
           </button>
         </div>
       )}
@@ -672,6 +671,7 @@ function BoardContent({
           onFiles={onUpload}
           onCreate={onCreate}
           onPresence={onPresence}
+          collaborators={collaborators}
           renderCard={(card) => (
             <CardView
               card={card}

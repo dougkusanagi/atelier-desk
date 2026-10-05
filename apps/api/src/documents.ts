@@ -35,6 +35,28 @@ const cardSchema = z.object({
   content: z.record(z.string(), z.unknown()),
   deletedAt: z.string().datetime().optional(),
 });
+const endpointSchema = z.union([
+  z.object({ cardId: uuidSchema(), side: z.enum(['top', 'right', 'bottom', 'left']) }),
+  z.object({ x: finite, y: finite }),
+]);
+function uuidSchema() {
+  return z.string().uuid();
+}
+const connectorSchema = z.object({
+  id: uuidSchema(),
+  source: endpointSchema,
+  target: endpointSchema,
+  label: z.string().max(500),
+  curved: z.boolean(),
+  controls: z
+    .tuple([z.object({ x: finite, y: finite }), z.object({ x: finite, y: finite })])
+    .optional(),
+  color: z.string().regex(/^#[0-9a-f]{6}$/i),
+  width: z.number().finite().min(1).max(8),
+  dashed: z.boolean(),
+  arrows: z.enum(['none', 'end', 'both']),
+  deletedAt: z.string().datetime().optional(),
+});
 export function validateDocument(doc: Y.Doc) {
   for (const key of doc.share.keys())
     if (!['cards', 'connectors'].includes(key) && !key.startsWith('rich:'))
@@ -48,6 +70,8 @@ export function validateDocument(doc: Y.Doc) {
     if (!result.success || result.data.id !== key)
       throw new ApiError(400, 'INVALID_CARD', 'Cartão com dados inválidos.');
     const card = result.data;
+    if (!(value.get('content') instanceof Y.Map))
+      throw new ApiError(400, 'INVALID_CONTENT', 'Conteúdo colaborativo inválido.');
     if (card.layout.kind === 'column') {
       const parent = cards.get(card.layout.columnId);
       if (card.type === 'column' || parent?.get('type') !== 'column')
@@ -69,7 +93,11 @@ export function validateDocument(doc: Y.Doc) {
       throw new ApiError(400, 'INVALID_COLOR', 'Informe uma cor HEX válida.');
   });
   doc.getMap<Y.Map<unknown>>('connectors').forEach((value, key) => {
-    if (!(value instanceof Y.Map) || value.get('id') !== key)
+    if (
+      !(value instanceof Y.Map) ||
+      value.get('id') !== key ||
+      !connectorSchema.safeParse(value.toJSON()).success
+    )
       throw new ApiError(400, 'INVALID_CONNECTOR', 'Conexão inválida.');
     for (const side of ['source', 'target']) {
       const end = value.get(side) as { cardId?: string; x?: number; y?: number };

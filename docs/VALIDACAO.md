@@ -40,3 +40,12 @@
 - Docker Compose, pipeline GitHub Actions e guia de backup/operação foram adicionados. Configuração real de SMTP, TLS, S3 e assinaturas ClamAV continua específica da implantação.
 - `pnpm test:e2e`: 7 cenários passaram sobre o build de produção. Fixture de 1.007 cartões renderizou 27 elementos; mediana 16,7ms e p95 16,7–16,8ms na navegação medida. Consulte `DESEMPENHO.md` para método e limites.
 - Imagens `web` e `api` construídas com Podman; API containerizada respondeu readiness sobre PostgreSQL externo e `nginx -t` passou. O smoke test local usa `NODE_ENV=development` por não ter TLS/SMTP real configurado.
+
+## Etapa 6 — organização, conexões e histórico do editor
+
+- `pnpm check`: 38 testes passaram, TypeScript/lint/builds sem erros.
+- `pnpm test:e2e`: 8 cenários passaram, incluindo criação e edição de conexão com rótulo persistido após recarga.
+- Alinhamento em seis direções e distribuição em dois eixos funcionam como uma transação; alças editam curvas e pontos das conexões. A API valida formato, dimensões e cores de conexões.
+- O UndoManager do quadro agora sobrevive à desmontagem de uma nota. Cada editor libera somente seus próprios listeners; o teste verifica a continuidade de undo.
+- O documento conserva referências dos cartões que não mudaram e só serializa os afetados. O cenário de mil cartões caiu de aproximadamente 11s para 4,1s no E2E local completo; a medição de navegação manteve p95 16,8ms.
+- A primeira execução remota do CI passou 6/7 E2E e encontrou timeout no bootstrap grande. A otimização e um prazo específico de 30s para essa fixture foram enviados; o resultado remoto atualizado será registrado após a nova execução.

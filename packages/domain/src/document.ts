@@ -19,6 +19,7 @@ export class BoardDocument {
   readonly connectors: Y.Map<Y.Map<unknown>>;
   readonly undoManager: Y.UndoManager;
   private listeners = new Set<() => void>();
+  private dirtyCards = new Set<string>();
   private cache = new Map<string, { signature: string; card: Card }>();
   private state: BoardState = { cards: [], connectors: [], revision: 0 };
   constructor(doc = new Y.Doc()) {
@@ -28,6 +29,14 @@ export class BoardDocument {
     this.undoManager = new Y.UndoManager([this.cards, this.connectors], {
       trackedOrigins: new Set([LOCAL_ORIGIN]),
       captureTimeout: 500,
+    });
+    this.cards.observeDeep((events) => {
+      for (const event of events) {
+        const key = event.path[0];
+        if (typeof key === 'string') this.dirtyCards.add(key);
+        else if (event instanceof Y.YMapEvent)
+          event.keysChanged.forEach((id) => this.dirtyCards.add(id));
+      }
     });
     this.doc.on('afterTransaction', this.refresh);
     this.refresh();
@@ -39,9 +48,23 @@ export class BoardDocument {
     };
   };
   snapshot = () => this.state;
-  private refresh = () => {
+  private refresh = (transaction?: Y.Transaction) => {
+    if (transaction && !transaction.changedParentTypes.size) return;
+    const dirty = new Set(this.dirtyCards);
+    this.dirtyCards.clear();
+    if (transaction) {
+      this.cards.forEach((_value, key) => {
+        const fragment = this.doc.share.get('rich:' + key);
+        if (fragment && transaction.changedParentTypes.has(fragment)) dirty.add(key);
+      });
+    }
     const cards: Card[] = [];
     this.cards.forEach((value, key) => {
+      const existing = this.cache.get(key);
+      if (transaction && existing && !dirty.has(key)) {
+        cards.push(existing.card);
+        return;
+      }
       const json = value.toJSON() as Card;
       const content = json.content as CardContent & {
         taskItems?: Record<string, Task>;
@@ -52,6 +75,8 @@ export class BoardDocument {
           (a, b) => a.order - b.order || a.id.localeCompare(b.id),
         );
       if (content.strokeItems) content.strokes = Object.values(content.strokeItems);
+      delete content.taskItems;
+      delete content.strokeItems;
       const fragment =
         json.type === 'note' && this.doc.share.has('rich:' + key)
           ? this.doc.getXmlFragment('rich:' + key)

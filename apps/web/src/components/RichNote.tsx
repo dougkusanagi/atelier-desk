@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Collaboration from '@tiptap/extension-collaboration';
@@ -19,6 +19,7 @@ import {
   Quote,
 } from 'lucide-react';
 import type { BoardDocument, Card } from '@atelier/domain';
+import { editorUndoFacade } from '../lib/editorUndo';
 export function RichNote({
   card,
   board,
@@ -28,6 +29,7 @@ export function RichNote({
   board: BoardDocument;
   readOnly: boolean;
 }) {
+  const undoManager = useMemo(() => editorUndoFacade(board.undoManager), [board]);
   const fragment = board.doc.getXmlFragment('rich:' + card.id);
   board.undoManager.trackedOrigins.add(ySyncPluginKey);
   const editor = useEditor(
@@ -41,7 +43,7 @@ export function RichNote({
         Collaboration.configure({
           document: board.doc,
           field: 'rich:' + card.id,
-          yUndoOptions: { undoManager: board.undoManager },
+          yUndoOptions: { undoManager },
         }),
         TaskList,
         TaskItem.configure({ nested: true }),

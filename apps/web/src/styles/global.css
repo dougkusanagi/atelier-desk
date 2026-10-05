@@ -2126,12 +2126,9 @@ kbd {
 .remote-cursor span {
   font-size: 10px;
   color: white;
-  background: currentColor;
+  background: var(--cursor-color);
   padding: 4px 6px;
   border-radius: 4px;
-}
-.remote-cursor span {
-  background: #6557a8;
 }
 .presence-avatars {
   display: flex;
@@ -2822,4 +2819,53 @@ kbd {
   .creation-rail {
     display: none;
   }
+}
+
+.connector-editor {
+  position: absolute;
+  left: 20px;
+  top: 16px;
+  z-index: 120000;
+  max-width: calc(100% - 40px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px;
+  background: var(--surface);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  align-items: center;
+}
+.connector-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--secondary);
+}
+.connector-editor input:not([type='checkbox']),
+.connector-editor select {
+  min-height: 32px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 5px 8px;
+  max-width: 180px;
+}
+.connector-editor input[type='number'] {
+  width: 70px;
+}
+.connector-editor label.check-label {
+  flex-direction: row;
+  align-self: center;
+}
+.connector-handle {
+  pointer-events: all;
+  cursor: crosshair;
+}
+
+.align-toolbar {
+  max-width: calc(100% - 40px);
+  flex-wrap: wrap;
 }

@@ -18,6 +18,7 @@ import {
   Plus,
   Trash2,
   ZoomIn,
+  MousePointer2,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
@@ -37,9 +38,12 @@ import {
   WORLD_LIMIT,
   connectorPath,
   endpointPoint,
+  worldToScreen,
   id,
 } from '@atelier/domain';
 import { useCanvas } from './state';
+import type { Presence } from '../../lib/sync';
+import { ConnectorEditor } from '../../components/ConnectorEditor';
 type SpatialItem = { minX: number; minY: number; maxX: number; maxY: number; id: string };
 type Gesture = {
   kind: 'pending' | 'drag' | 'pan' | 'marquee' | 'resize';
@@ -59,6 +63,7 @@ export function Canvas({
   onFiles,
   onCreate,
   onPresence,
+  collaborators = [],
 }: {
   board: BoardDocument;
   renderCard: (card: Card) => ReactNode;
@@ -66,6 +71,7 @@ export function Canvas({
   onFiles?: (files: File[], point: Point) => void;
   onCreate?: (type: CardType, point: Point) => void;
   onPresence?: (point: Point, selection: string[]) => void;
+  collaborators?: Presence[];
 }) {
   const state = useSyncExternalStore(board.subscribe, board.snapshot);
   const camera = useCanvas((s) => s.camera),
@@ -86,6 +92,15 @@ export function Canvas({
   const [context, setContext] = useState<Point | null>(null),
     [connecting, setConnecting] = useState<string | null>(null);
   const reduced = useReducedMotion();
+  const lineDrag = useRef<{
+    id: string;
+    handle: 'source' | 'target' | 'first' | 'second';
+    original: Connector;
+    patch: Partial<Connector>;
+  } | null>(null);
+  const [linePreview, setLinePreview] = useState<{ id: string; patch: Partial<Connector> } | null>(
+    null,
+  );
   const cards = useMemo(
     () =>
       effectiveCards(
@@ -172,6 +187,8 @@ export function Canvas({
   };
   const cancel = useCallback(() => {
     gesture.current = null;
+    lineDrag.current = null;
+    setLinePreview(null);
     pinch.current = null;
     pointers.current.clear();
     setPreview(new Map());
@@ -292,6 +309,20 @@ export function Canvas({
       } else if (mod && event.key.toLowerCase() === 'c') {
         event.preventDefault();
         copy();
+      } else if (event.key.toLowerCase() === 'l' && !mod && !readOnly) {
+        event.preventDefault();
+        setTool('connector');
+      } else if (event.key === 'Enter' && selected.length === 1) {
+        event.preventDefault();
+        viewport.current
+          ?.querySelector<HTMLElement>(
+            '[data-card-id="' +
+              selected[0] +
+              '"] input, [data-card-id="' +
+              selected[0] +
+              '"] [contenteditable=true]',
+          )
+          ?.focus();
       } else if (mod && event.key.toLowerCase() === 'v') {
         event.preventDefault();
         void paste();
@@ -397,7 +428,7 @@ export function Canvas({
         setConnecting(cardId);
         notify('Escolha o cartão de destino');
       } else if (connecting !== cardId) {
-        board.addConnector({
+        const lineId = board.addConnector({
           source: { cardId: connecting, side: 'right' },
           target: { cardId, side: 'left' },
           label: '',
@@ -408,6 +439,7 @@ export function Canvas({
           arrows: 'end',
         });
         setConnecting(null);
+        setSelected([lineId]);
         setTool('select');
       }
       return;
@@ -476,6 +508,53 @@ export function Canvas({
         x: next.x + mid.x - initial.midpoint.x,
         y: next.y + mid.y - initial.midpoint.y,
       });
+      return;
+    }
+    const connection = lineDrag.current;
+    if (connection && !readOnly) {
+      const world = screenToWorld(p, current),
+        original = connection.original;
+      if (connection.handle === 'source' || connection.handle === 'target') {
+        const hit = [...cards]
+          .sort((a, b) => b.z - a.z)
+          .find(
+            (card) =>
+              world.x >= card.x &&
+              world.x <= card.x + card.width &&
+              world.y >= card.y &&
+              world.y <= card.y + card.height,
+          );
+        const side = hit
+          ? (
+              [
+                ['left', Math.abs(world.x - hit.x)],
+                ['right', Math.abs(world.x - hit.x - hit.width)],
+                ['top', Math.abs(world.y - hit.y)],
+                ['bottom', Math.abs(world.y - hit.y - hit.height)],
+              ] as const
+            )
+              .slice()
+              .sort((a, b) => a[1] - b[1])[0][0]
+          : 'left';
+        connection.patch = {
+          [connection.handle]: hit && !event.altKey ? { cardId: hit.id, side } : world,
+        };
+      } else {
+        const a = endpointPoint(original.source, cards),
+          b = endpointPoint(original.target, cards),
+          dx = Math.max(40, Math.abs(b.x - a.x) / 2),
+          controls = original.controls
+            ? ([...original.controls] as [Point, Point])
+            : ([
+                { x: dx, y: 0 },
+                { x: -dx, y: 0 },
+              ] as [Point, Point]);
+        const first = connection.handle === 'first',
+          base = first ? a : b;
+        controls[first ? 0 : 1] = { x: world.x - base.x, y: world.y - base.y };
+        connection.patch = { controls };
+      }
+      setLinePreview({ id: connection.id, patch: connection.patch });
       return;
     }
     const g = gesture.current;
@@ -560,6 +639,12 @@ export function Canvas({
     return updates;
   }
   function end(event: ReactPointerEvent<HTMLDivElement>) {
+    if (lineDrag.current) {
+      if (!readOnly) board.patchConnector(lineDrag.current.id, lineDrag.current.patch);
+      lineDrag.current = null;
+      setLinePreview(null);
+      return;
+    }
     pointers.current.delete(event.pointerId);
     if (pinch.current) {
       if (pointers.current.size < 2) pinch.current = null;
@@ -692,7 +777,9 @@ export function Canvas({
           </defs>
           {state.connectors
             .filter((c) => !c.deletedAt)
-            .map((line) => {
+            .map((stored) => {
+              const line =
+                linePreview?.id === stored.id ? { ...stored, ...linePreview.patch } : stored;
               const a = endpointPoint(line.source, cards),
                 b = endpointPoint(line.target, cards);
               return (
@@ -703,6 +790,15 @@ export function Canvas({
                     stroke="transparent"
                     strokeWidth={12 / camera.zoom}
                     className="connector-hit"
+                    tabIndex={0}
+                    role="button"
+                    aria-label={'Selecionar conexão ' + (line.label || 'sem rótulo')}
+                    onKeyDown={(event) => {
+                      if (['Enter', ' '].includes(event.key)) {
+                        event.preventDefault();
+                        setSelected([line.id]);
+                      }
+                    }}
                     onClick={() => setSelected([line.id])}
                   />
                   <path
@@ -714,6 +810,71 @@ export function Canvas({
                     markerEnd={line.arrows !== 'none' ? 'url(#arrow)' : undefined}
                     markerStart={line.arrows === 'both' ? 'url(#arrow)' : undefined}
                   />
+                  {selected.includes(line.id) &&
+                    !readOnly &&
+                    (() => {
+                      const dx = Math.max(40, Math.abs(b.x - a.x) / 2),
+                        controls = line.controls ?? [
+                          { x: dx, y: 0 },
+                          { x: -dx, y: 0 },
+                        ];
+                      const handles = [
+                        { key: 'source', ...a },
+                        { key: 'target', ...b },
+                        ...(line.curved
+                          ? [
+                              { key: 'first', x: a.x + controls[0].x, y: a.y + controls[0].y },
+                              { key: 'second', x: b.x + controls[1].x, y: b.y + controls[1].y },
+                            ]
+                          : []),
+                      ];
+                      return (
+                        <g>
+                          {line.curved && (
+                            <path
+                              d={`M${a.x} ${a.y}L${a.x + controls[0].x} ${a.y + controls[0].y}M${b.x} ${b.y}L${b.x + controls[1].x} ${b.y + controls[1].y}`}
+                              fill="none"
+                              stroke="var(--accent)"
+                              strokeWidth={1 / camera.zoom}
+                              strokeDasharray="4 4"
+                            />
+                          )}
+                          {handles.map((handle) => (
+                            <g
+                              key={handle.key}
+                              className="connector-handle"
+                              data-no-drag
+                              aria-label={'Alça ' + handle.key}
+                              onPointerDown={(event) => {
+                                event.stopPropagation();
+                                event.currentTarget.setPointerCapture(event.pointerId);
+                                lineDrag.current = {
+                                  id: line.id,
+                                  handle: handle.key as 'source' | 'target' | 'first' | 'second',
+                                  original: stored,
+                                  patch: {},
+                                };
+                              }}
+                            >
+                              <circle
+                                cx={handle.x}
+                                cy={handle.y}
+                                r={15 / camera.zoom}
+                                fill="transparent"
+                              />
+                              <circle
+                                cx={handle.x}
+                                cy={handle.y}
+                                r={5 / camera.zoom}
+                                fill="var(--surface)"
+                                stroke="var(--accent)"
+                                strokeWidth={2 / camera.zoom}
+                              />
+                            </g>
+                          ))}
+                        </g>
+                      );
+                    })()}
                   {line.label && (
                     <text
                       x={(a.x + b.x) / 2}
@@ -807,6 +968,27 @@ export function Canvas({
           />
         ))}
       </div>
+      {collaborators.map((peer, index) => {
+        const point = worldToScreen(peer, camera),
+          color = ['#A45040', '#497846', '#6557A8', '#287E9A'][index % 4];
+        return (
+          <div
+            className="remote-cursor"
+            key={peer.clientId}
+            style={
+              { left: point.x, top: point.y, color, '--cursor-color': color } as React.CSSProperties
+            }
+          >
+            <MousePointer2 size={18} fill="currentColor" />
+            <span>{peer.user.name}</span>
+          </div>
+        );
+      })}
+      {!readOnly &&
+        selected.length === 1 &&
+        state.connectors
+          .filter((line) => line.id === selected[0] && !line.deletedAt)
+          .map((line) => <ConnectorEditor key={line.id} board={board} line={line} />)}
       <div className="canvas-hint">
         {selected.length
           ? selected.length + ' selecionado' + (selected.length > 1 ? 's' : '')

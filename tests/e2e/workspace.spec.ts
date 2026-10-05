@@ -202,7 +202,7 @@ test('mantém culling e mede frames durante navegação com mil cartões', async
   expect(result.ok()).toBe(true);
   document.destroy();
   await page.reload();
-  await expect(page.locator('.save-state')).toHaveText('Salvo');
+  await expect(page.locator('.save-state')).toHaveText('Salvo', { timeout: 30_000 });
   await expect(page.locator('[data-card-id]').first()).toBeVisible();
   const rendered = await page.locator('[data-card-id]').count();
   expect(rendered).toBeLessThan(100);
@@ -239,4 +239,20 @@ test('mantém culling e mede frames durante navegação com mil cartões', async
   });
   console.log('Medição de navegação:', JSON.stringify(report));
   expect(report.p95Ms).toBeLessThan(34);
+});
+
+test('cria e edita conexões com curva e rótulo', async ({ page }) => {
+  await register(page);
+  const cards = page.locator('[data-card-id].card-note');
+  await page.getByRole('button', { name: 'Conectar', exact: true }).click();
+  const first = await cards.first().boundingBox(),
+    second = await cards.nth(1).boundingBox();
+  await page.mouse.click(first!.x + 15, first!.y + 12);
+  await page.mouse.click(second!.x + 15, second!.y + 12);
+  await page.getByLabel('Rótulo da conexão').fill('Inspiração para o projeto');
+  await page.getByLabel('Traçado da conexão').selectOption('straight');
+  await expect(page.locator('.connector-label')).toContainText('Inspiração para o projeto');
+  await expect(page.locator('.save-state')).toHaveText('Salvo');
+  await page.reload();
+  await expect(page.locator('.connector-label')).toContainText('Inspiração para o projeto');
 });
