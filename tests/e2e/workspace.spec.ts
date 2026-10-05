@@ -275,3 +275,31 @@ test('desfaz uma alteração pelo histórico durável após recarga', async ({ p
     'Uma ideia para desfazer depois.',
   );
 });
+
+test('reutiliza um template salvo e duplica o quadro pelo dashboard', async ({ page }) => {
+  await register(page);
+  await page.getByRole('button', { name: 'Nota', exact: true }).click();
+  await page
+    .locator('[data-card-id].card-note [contenteditable=true]')
+    .last()
+    .fill('Conteúdo do template pessoal');
+  await expect(page.locator('.save-state')).toHaveText('Salvo');
+  await page.getByRole('button', { name: 'Histórico', exact: true }).click();
+  await page.getByRole('button', { name: 'Salvar como template' }).click();
+  await expect(page.getByText('Template salvo', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Fechar', exact: true }).click();
+  const title = await page.getByRole('textbox', { name: 'Nome do quadro' }).inputValue();
+  await page.getByRole('link', { name: 'Meus quadros', exact: true }).first().click();
+  await page.locator('.template-options').getByRole('button', { name: title }).click();
+  await page.getByRole('textbox', { name: 'Nome do quadro' }).fill('Projeto a partir do template');
+  await page.getByRole('button', { name: 'Criar quadro', exact: true }).click();
+  await expect(page.locator('.card-note')).toContainText(['Conteúdo do template pessoal']);
+  await page.getByRole('link', { name: 'Meus quadros', exact: true }).first().click();
+  await page
+    .getByRole('button', { name: 'Duplicar Projeto a partir do template', exact: true })
+    .click();
+  await expect(page.getByRole('textbox', { name: 'Nome do quadro' })).toHaveValue(
+    'Projeto a partir do template — cópia',
+  );
+  await expect(page.locator('.card-note')).toContainText(['Conteúdo do template pessoal']);
+});

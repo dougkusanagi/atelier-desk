@@ -1,3 +1,4 @@
+import { userReadModel } from './readModel';
 import type { FastifyInstance } from 'fastify';
 import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
@@ -17,7 +18,7 @@ import {
 import type { Database } from './db';
 import { Documents } from './documents';
 import { Storage } from './storage';
-import { ApiError, boardRole, currentUser, requireRole, uuid, verifyCsrf } from './security';
+import { ApiError, requireExport, currentUser, requireRole, uuid, verifyCsrf } from './security';
 const escape = (text: string) =>
   text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const require = createRequire(import.meta.url);
@@ -210,7 +211,7 @@ export class ExportWorker {
       });
       if (!job) return;
       try {
-        await boardRole(this.db, job.board_id, job.user_id);
+        await requireExport(this.db, job.board_id, job.user_id);
         const payload = job.payload,
           stem = payload.title.replace(/[^\p{L}\p{N} _-]/gu, '').slice(0, 100) || 'quadro';
         let data: Buffer,
@@ -298,7 +299,7 @@ export class ExportWorker {
             await context.close();
           }
         }
-        await boardRole(this.db, job.board_id, job.user_id);
+        await requireExport(this.db, job.board_id, job.user_id);
         const current = await this.db.query<{ status: string }>(
           'SELECT status FROM jobs WHERE id=$1',
           [job.id],
@@ -339,7 +340,7 @@ export function registerExports(
     const user = await currentUser(db, request);
     verifyCsrf(user, request);
     const { id } = z.object({ id: uuid }).parse(request.params),
-      access = await boardRole(db, id, user.id);
+      access = await requireExport(db, id, user.id);
     requireRole(access.role, 'viewer');
     const input = z
       .object({
@@ -349,7 +350,7 @@ export function registerExports(
         background: z.enum(['#F5F4F0', '#FFFFFF', '#191B1F', 'transparent']).default('#F5F4F0'),
       })
       .parse(request.body);
-    let state = await documents.snapshot(id);
+    let state = await userReadModel(db, await documents.snapshot(id), user.id);
     if (input.selection) {
       const ids = new Set(input.selection);
       state = {
@@ -419,7 +420,7 @@ export function registerExports(
       }>("SELECT * FROM jobs WHERE id=$1 AND user_id=$2 AND status='ready'", [id, user.id]),
       job = result.rows[0];
     if (!job) throw new ApiError(404, 'JOB_NOT_READY', 'Exportação não disponível.');
-    await boardRole(db, job.board_id, user.id);
+    await requireExport(db, job.board_id, user.id);
     const file = await storage.stream(job.output_key);
     return reply
       .header('Cache-Control', 'private, no-store')

@@ -35,11 +35,13 @@ import {
   AlignHorizontalSpaceAround,
   AlignVerticalSpaceAround,
   Trash2,
+  Settings2,
 } from 'lucide-react';
 import {
   type BoardDocument,
   type CardType,
   type Point,
+  fitCamera,
   effectiveCards,
   screenToWorld,
   arrangeCards,
@@ -92,9 +94,9 @@ function LoadedBoard({ boardId }: { boardId: string }) {
     selected = useCanvas((s) => s.selected),
     activeTool = useCanvas((s) => s.tool);
   const { setCamera, setSelected, setTool, notify } = useCanvas.getState();
-  const [panel, setPanel] = useState<'share' | 'comments' | 'export' | 'history' | 'trash' | null>(
-      null,
-    ),
+  const [panel, setPanel] = useState<
+      'share' | 'comments' | 'export' | 'history' | 'trash' | 'settings' | null
+    >(null),
     [linear, setLinear] = useState(window.innerWidth < 768);
   const filePicker = useRef<HTMLInputElement>(null),
     [uploadType, setUploadType] = useState<CardType>('image');
@@ -112,6 +114,22 @@ function LoadedBoard({ boardId }: { boardId: string }) {
       );
     };
   }, [boardId, user, setCamera, setSelected]);
+  useEffect(() => {
+    if (!sync.board) return;
+    const target = sessionStorage.getItem('atelier-search-target');
+    if (!target) return;
+    const card = effectiveCards(sync.board.snapshot().cards).find((c) => c.id === target);
+    if (!card) return;
+    sessionStorage.removeItem('atelier-search-target');
+    setSelected([target]);
+    const viewport = document.querySelector('.canvas');
+    setCamera(
+      fitCamera([card], {
+        width: viewport?.clientWidth ?? 900,
+        height: viewport?.clientHeight ?? 600,
+      }),
+    );
+  }, [sync.board, setCamera, setSelected]);
   useEffect(() => {
     if (sync.meta && workspace.workspaceId !== sync.meta.workspace_id)
       workspace.setWorkspaceId(sync.meta.workspace_id);
@@ -282,6 +300,16 @@ function LoadedBoard({ boardId }: { boardId: string }) {
           <strong>{sync.meta.title}</strong>
         </div>
         <div className="header-actions">
+          {!readOnly && (
+            <button
+              className="icon-button"
+              aria-label="Configurar quadro"
+              onClick={() => setPanel('settings')}
+            >
+              <Settings2 size={17} />
+            </button>
+          )}
+
           <span className={'save-state save-' + sync.status} aria-live="polite">
             {sync.status === 'saved' ? (
               <Check size={13} />
@@ -660,6 +688,67 @@ function LoadedBoard({ boardId }: { boardId: string }) {
             )}
           </div>
         )}
+      </Dialog>
+      <Dialog open={panel === 'settings'} onClose={() => setPanel(null)} title="Configurar quadro">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            void api('/boards/' + boardId, {
+              method: 'PATCH',
+              body: JSON.stringify({
+                description: form.get('description'),
+                icon: form.get('icon'),
+                coverAsset: form.get('cover') || null,
+              }),
+            })
+              .then(async () => {
+                sync.setMeta({
+                  ...sync.meta!,
+                  description: String(form.get('description')),
+                  icon: String(form.get('icon')),
+                  cover_asset: String(form.get('cover')) || null,
+                });
+                await workspace.refresh();
+                setPanel(null);
+                notify('Quadro atualizado');
+              })
+              .catch((error) => notify(error.message));
+          }}
+        >
+          <label>
+            Descrição
+            <textarea name="description" maxLength={1000} defaultValue={sync.meta.description} />
+          </label>
+          <label>
+            Ícone
+            <select name="icon" defaultValue={sync.meta.icon}>
+              <option value="board">Quadro</option>
+              <option value="palette">Paleta</option>
+              <option value="film">Filme</option>
+              <option value="briefcase">Projeto</option>
+              <option value="book">Pesquisa</option>
+            </select>
+          </label>
+          <label>
+            Capa
+            <select name="cover" defaultValue={sync.meta.cover_asset ?? ''}>
+              <option value="">Sem capa</option>
+              {sync.board
+                .snapshot()
+                .cards.filter(
+                  (card) => !card.deletedAt && card.type === 'image' && card.content.assetId,
+                )
+                .map((card) => (
+                  <option key={card.id} value={card.content.assetId}>
+                    {card.content.caption || card.content.filename || 'Imagem'}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <p className="permission-note">Envie uma imagem ao quadro para usá-la como capa.</p>
+          <button className="primary-button">Salvar configuração</button>
+        </form>
       </Dialog>
       <Dialog open={panel === 'trash'} onClose={() => setPanel(null)} title="Lixeira de cartões">
         <CardTrash board={sync.board} readOnly={readOnly} />

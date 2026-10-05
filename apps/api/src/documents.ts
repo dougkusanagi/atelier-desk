@@ -153,6 +153,12 @@ export class Documents {
       boardId,
       Buffer.from(Y.encodeStateAsUpdate(board.doc)),
     ]);
+    for (const card of state.cards)
+      if (card.content.assetId)
+        await database.query(
+          'INSERT INTO asset_references(asset_id,board_id,card_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',
+          [card.content.assetId, boardId, card.id],
+        );
     board.destroy();
   }
   async update(

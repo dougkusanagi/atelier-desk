@@ -52,8 +52,8 @@ export function registerBoards(app: FastifyInstance, db: Database, documents: Do
       .object({ workspaceId: uuid.optional(), trash: z.enum(['true', 'false']).optional() })
       .parse(request.query);
     const result = await db.query<BoardRow>(
-      'SELECT * FROM boards WHERE ($1::uuid IS NULL OR workspace_id=$1) ORDER BY updated_at DESC',
-      [input.workspaceId ?? null],
+      'SELECT b.*, (f.board_id IS NOT NULL) AS favorite,v.last_visited FROM boards b LEFT JOIN board_favorites f ON f.board_id=b.id AND f.user_id=$2 LEFT JOIN board_visits v ON v.board_id=b.id AND v.user_id=$2 WHERE ($1::uuid IS NULL OR workspace_id=$1) ORDER BY updated_at DESC',
+      [input.workspaceId ?? null, user.id],
     );
     const items = [];
     for (const board of result.rows) {
@@ -144,7 +144,6 @@ export function registerBoards(app: FastifyInstance, db: Database, documents: Do
     const user = await auth(request, true),
       { id } = z.object({ id: uuid }).parse(request.params),
       access = await boardRole(db, id, user.id);
-    requireRole(access.role, 'editor');
     const input = z
       .object({
         title: z.string().trim().min(1).max(200).optional(),
@@ -152,9 +151,39 @@ export function registerBoards(app: FastifyInstance, db: Database, documents: Do
         icon: z.string().max(40).optional(),
         favorite: z.boolean().optional(),
         inheritAccess: z.boolean().optional(),
+        coverAsset: uuid.nullable().optional(),
       })
       .parse(request.body);
+    if (Object.keys(input).some((key) => key !== 'favorite')) requireRole(access.role, 'editor');
     if (input.inheritAccess !== undefined) requireRole(access.role, 'owner');
+    if (input.favorite !== undefined) {
+      if (input.favorite)
+        await db.query(
+          'INSERT INTO board_favorites(user_id,board_id) VALUES($1,$2) ON CONFLICT DO NOTHING',
+          [user.id, id],
+        );
+      else
+        await db.query('DELETE FROM board_favorites WHERE user_id=$1 AND board_id=$2', [
+          user.id,
+          id,
+        ]);
+    }
+    if (input.coverAsset !== undefined) {
+      if (input.coverAsset) {
+        const asset = await db.query(
+          "SELECT 1 FROM assets a JOIN asset_references r ON r.asset_id=a.id WHERE a.id=$1 AND r.board_id=$2 AND a.mime LIKE 'image/%'",
+          [input.coverAsset, id],
+        );
+        if (!asset.rows.length)
+          throw new ApiError(
+            403,
+            'ASSET_FORBIDDEN',
+            'Escolha uma imagem deste quadro para a capa.',
+          );
+      }
+      await db.query('UPDATE boards SET cover_asset=$2 WHERE id=$1', [id, input.coverAsset]);
+    }
+
     await db.query(
       'UPDATE boards SET title=COALESCE($2,title),description=COALESCE($3,description),icon=COALESCE($4,icon),favorite=COALESCE($5,favorite),inherit_access=COALESCE($6,inherit_access),version=version+1,updated_at=now() WHERE id=$1',
       [
@@ -162,7 +191,7 @@ export function registerBoards(app: FastifyInstance, db: Database, documents: Do
         input.title ?? null,
         input.description ?? null,
         input.icon ?? null,
-        input.favorite ?? null,
+        null,
         input.inheritAccess ?? null,
       ],
     );
@@ -360,9 +389,10 @@ export function registerBoards(app: FastifyInstance, db: Database, documents: Do
   });
   app.get('/api/v1/templates', async (request) => {
     const user = await auth(request);
+    const { workspaceId } = z.object({ workspaceId: uuid.optional() }).parse(request.query);
     const custom = await db.query(
-      'SELECT t.id,t.name,t.category FROM templates t JOIN workspace_members m ON m.workspace_id=t.workspace_id WHERE m.user_id=$1',
-      [user.id],
+      'SELECT t.id,t.name,t.category FROM templates t JOIN workspace_members m ON m.workspace_id=t.workspace_id WHERE m.user_id=$1 AND ($2::uuid IS NULL OR t.workspace_id=$2)',
+      [user.id, workspaceId ?? null],
     );
     return { items: [...BUILTIN_TEMPLATES, ...custom.rows] };
   });

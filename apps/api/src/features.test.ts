@@ -246,6 +246,33 @@ describe('compartilhamento, arquivos, comentários e exportações', () => {
     connection.destroy();
     board.destroy();
   });
+  it('respeita a permissão de exportação do link aceito', async () => {
+    const response = await instance.app.inject({
+      method: 'POST',
+      url: '/api/v1/boards/' + owner.boardId + '/exports',
+      headers: headers(reader),
+      payload: { format: 'markdown' },
+    });
+    expect(response.statusCode).toBe(403);
+    expect(response.json().code).toBe('EXPORT_FORBIDDEN');
+  });
+  it('mantém favoritos individuais para cada participante', async () => {
+    const response = await instance.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/boards/' + owner.boardId,
+      headers: headers(reader),
+      payload: { favorite: true },
+    });
+    expect(response.statusCode).toBe(200);
+    const ownerBoards = (
+      await instance.app.inject({ url: '/api/v1/boards', headers: headers(owner) })
+    ).json().items;
+    const readerBoards = (
+      await instance.app.inject({ url: '/api/v1/boards', headers: headers(reader) })
+    ).json().items;
+    expect(ownerBoards.find((b: { id: string }) => b.id === owner.boardId).favorite).toBe(false);
+    expect(readerBoards.find((b: { id: string }) => b.id === owner.boardId).favorite).toBe(true);
+  });
   it('permite comentários e cria uma notificação por menção', async () => {
     const grant = await instance.app.inject({
       method: 'POST',

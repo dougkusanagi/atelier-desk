@@ -1,3 +1,4 @@
+import { registerBoardOperations } from './boardOperations';
 import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
@@ -110,6 +111,7 @@ export async function createApp(
   app.get('/api/v1/openapi.json', async () => app.swagger());
   registerAuth(app, db, settings, documents);
   registerBoards(app, db, documents);
+  registerBoardOperations(app, db, documents);
   registerRealtime(app, db, documents, settings.origin);
   registerSharing(app, db, documents, settings);
   registerComments(app, db, settings);

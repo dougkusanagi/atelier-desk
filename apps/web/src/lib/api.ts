@@ -46,6 +46,8 @@ export type BoardMeta = {
   title: string;
   description: string;
   icon: string;
+  cover_asset?: string | null;
+  last_visited?: string | null;
   role: 'owner' | 'editor' | 'commenter' | 'viewer';
   favorite: boolean;
   kind: string;

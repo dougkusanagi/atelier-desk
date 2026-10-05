@@ -24,6 +24,7 @@ export function PublicPage({ published = false }: { published?: boolean }) {
         board: { id: string; title: string; description: string };
         state: BoardState;
         role: string;
+        allowExport: boolean;
       }>(
         (published ? '/published/' : '/shares/') +
           token +
@@ -108,9 +109,9 @@ export function PublicPage({ published = false }: { published?: boolean }) {
         </Link>
         <strong>{data.board.title}</strong>
         <span>Somente leitura</span>
-        {data.role !== 'viewer' && (
+        {(data.role !== 'viewer' || data.allowExport) && (
           <button className="primary-button compact" onClick={() => void accept()}>
-            Aceitar acesso
+            Abrir na minha conta
             <ArrowUpRight size={15} />
           </button>
         )}

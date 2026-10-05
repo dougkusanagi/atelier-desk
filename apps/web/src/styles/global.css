@@ -2869,3 +2869,11 @@ kbd {
   max-width: calc(100% - 40px);
   flex-wrap: wrap;
 }
+.board-cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
+}

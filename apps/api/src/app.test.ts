@@ -167,6 +167,62 @@ describe('API real com PostgreSQL embarcado', () => {
       ).statusCode,
     ).toBe(200);
   });
+  it('duplica hierarquia, cartões e conexões com novos identificadores', async () => {
+    const children = await instance.db.query<{ id: string }>(
+      'SELECT id FROM boards WHERE parent_id=$1 AND deleted_at IS NULL',
+      [boardId],
+    );
+    const original = await instance.documents.get(boardId);
+    const userId = (
+      await instance.db.query<{ owner_id: string }>('SELECT owner_id FROM boards WHERE id=$1', [
+        boardId,
+      ])
+    ).rows[0].owner_id;
+    const local = new BoardDocument();
+    const column = local.add('column', { x: 0, y: 0 });
+    const nested = local.add('board', { x: 350, y: 0 });
+    local.patch(nested, {
+      content: { boardId: children.rows[0].id, owned: true },
+      layout: { kind: 'column', columnId: column, order: 0 },
+    });
+    local.addConnector({
+      source: { cardId: column, side: 'right' },
+      target: { cardId: nested, side: 'left' },
+      label: 'Conexão duplicada',
+      curved: true,
+      color: '#626872',
+      width: 2,
+      dashed: false,
+      arrows: 'end',
+    });
+    await instance.documents.update(
+      boardId,
+      userId,
+      Y.encodeStateAsUpdate(local.doc),
+      original.epoch,
+      crypto.randomUUID(),
+    );
+    const duplicate = await instance.app.inject({
+      method: 'POST',
+      url: '/api/v1/boards/' + boardId + '/duplicate',
+      headers: { cookie, 'x-csrf-token': csrf },
+      payload: {},
+    });
+    expect(duplicate.statusCode).toBe(201);
+    expect(duplicate.json().count).toBe(children.rows.length + 1);
+    const state = await instance.documents.snapshot(duplicate.json().id);
+    const copy = state.cards.find((c) => c.type === 'board' && c.content.owned)!;
+    expect(copy.id).not.toBe(nested);
+    expect(copy.content.boardId).not.toBe(children.rows[0].id);
+    const copiedChild = await instance.db.query<{ parent_id: string }>(
+      'SELECT parent_id FROM boards WHERE id=$1',
+      [copy.content.boardId],
+    );
+    expect(copiedChild.rows[0].parent_id).toBe(duplicate.json().id);
+    expect(state.connectors.some((c) => c.label === 'Conexão duplicada')).toBe(true);
+    expect(copy.layout.kind).toBe('column');
+    local.destroy();
+  });
   it('sobrevive ao reinício do servidor e do banco', async () => {
     await instance.app.close();
     instance = await createApp({ settings: { dataDir: directory } });

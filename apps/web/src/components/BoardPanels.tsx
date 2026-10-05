@@ -8,7 +8,10 @@ export function SharePanel({ boardId }: { boardId: string }) {
     [url, setUrl] = useState(''),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
-    [descendants, setDescendants] = useState(false);
+    [descendants, setDescendants] = useState(false),
+    [password, setPassword] = useState(''),
+    [expiresAt, setExpiresAt] = useState(''),
+    [allowExport, setAllowExport] = useState(false);
   const query = useQuery({
     queryKey: ['shares', boardId],
     queryFn: () =>
@@ -109,7 +112,13 @@ export function SharePanel({ boardId }: { boardId: string }) {
             void run(async () => {
               const result = await api<{ token: string }>('/boards/' + boardId + '/shares', {
                 method: 'POST',
-                body: JSON.stringify({ role, includeDescendants: descendants }),
+                body: JSON.stringify({
+                  role,
+                  includeDescendants: descendants,
+                  password: password || undefined,
+                  expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
+                  allowExport,
+                }),
               });
               setUrl(window.location.origin + '/compartilhar/' + result.token);
             })
@@ -126,6 +135,35 @@ export function SharePanel({ boardId }: { boardId: string }) {
           onChange={(e) => setDescendants(e.target.checked)}
         />
         Incluir quadros descendentes
+      </label>
+      <div className="inline-fields">
+        <label>
+          Senha opcional
+          <input
+            type="password"
+            autoComplete="new-password"
+            minLength={6}
+            maxLength={128}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </label>
+        <label>
+          Validade opcional
+          <input
+            type="datetime-local"
+            value={expiresAt}
+            onChange={(e) => setExpiresAt(e.target.value)}
+          />
+        </label>
+      </div>
+      <label className="check-label">
+        <input
+          type="checkbox"
+          checked={allowExport}
+          onChange={(e) => setAllowExport(e.target.checked)}
+        />
+        Permitir exportação
       </label>
       {role !== 'viewer' && (
         <p className="permission-note">

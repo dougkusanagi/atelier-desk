@@ -1,3 +1,4 @@
+import { BoardIcon } from './BoardIcon';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -128,7 +129,10 @@ export function Shell() {
           <div className="sidebar-section">
             <span>Recentes</span>
             {boards.data?.items
-              .filter((b) => b.kind !== 'unsorted')
+              .filter((b) => b.kind !== 'unsorted' && b.last_visited)
+              .sort(
+                (a, b) => new Date(b.last_visited!).getTime() - new Date(a.last_visited!).getTime(),
+              )
               .slice(0, 7)
               .map((board) => (
                 <Link
@@ -138,7 +142,9 @@ export function Shell() {
                   }
                   to={'/quadro/' + board.id}
                 >
-                  <span className="board-nav-icon">{board.title[0]}</span>
+                  <span className="board-nav-icon">
+                    <BoardIcon name={board.icon} size={14} />
+                  </span>
                   <span>{board.title}</span>
                 </Link>
               ))}

@@ -62,3 +62,13 @@
 - `pnpm check`: 42 testes passaram. Leitores e comentaristas recebem snapshots visíveis no bootstrap e WebSocket; somente editores recebem o documento causal.
 - Integração WebSocket verifica que texto de um cartão excluído não aparece no bootstrap nem nas atualizações do leitor.
 - GitHub Actions `37336616924` passou integralmente no commit `931c56f`: checks estáticos, PostgreSQL externo e nove cenários Chromium, incluindo o benchmark.
+
+## Etapa 9 — organização e templates pessoais
+
+- `pnpm check`: 45 testes passaram. `pnpm test:e2e`: dez cenários passaram.
+- Duplicação de quadros copia descendentes acessíveis e remapeia cartões, colunas, conexões e referências de subquadros em uma transação. As cópias mantêm referências autorizadas aos arquivos.
+- Templates salvos podem ser selecionados no dashboard; a busca enquadra e seleciona o cartão encontrado. Recentes usam visitas e favoritos são individuais.
+- Configuração de descrição, ícone e capa a partir de imagens do quadro; compartilhamento permite configurar senha, validade e exportação.
+- E2E verifica template pessoal e duplicação pelo dashboard; integrações verificam hierarquia e isolamento de favoritos.
+
+- Exportações respeitam a opção do link aceito também no job e no download; uma integração verifica a recusa quando a exportação está desativada.

@@ -97,3 +97,26 @@ export function requireRole(actual: Role, minimum: Role) {
   if (rank[actual] < rank[minimum])
     throw new ApiError(403, 'FORBIDDEN', 'Você não tem permissão para esta ação.');
 }
+export async function requireExport(db: Database, boardId: string, userId: string) {
+  const access = await boardRole(db, boardId, userId);
+  if (access.role === 'owner') return access;
+  let board = access.board;
+  for (let depth = 0; depth < 50; depth++) {
+    if (board.owner_id === userId) return access;
+    const member = await db.query<{ grant_id: string | null; allow_export: boolean | null }>(
+      'SELECT m.grant_id,s.allow_export FROM board_members m LEFT JOIN share_links s ON s.id=m.grant_id WHERE m.board_id=$1 AND m.user_id=$2',
+      [board.id, userId],
+    );
+    if (member.rows[0]) {
+      if (!member.rows[0].grant_id || member.rows[0].allow_export) return access;
+      throw new ApiError(
+        403,
+        'EXPORT_FORBIDDEN',
+        'O proprietário desativou a exportação deste link.',
+      );
+    }
+    if (!board.parent_id || !board.inherit_access) break;
+    board = (await boardRole(db, board.parent_id, userId)).board;
+  }
+  throw new ApiError(403, 'EXPORT_FORBIDDEN', 'Exportação indisponível para este acesso.');
+}

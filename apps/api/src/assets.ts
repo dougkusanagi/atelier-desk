@@ -87,7 +87,7 @@ export function registerAssets(
     if (!asset || !['ready', 'unscanned-development'].includes(asset.status))
       throw new ApiError(404, 'ASSET_NOT_FOUND', 'Arquivo não disponível.');
     const refs = await db.query<{ board_id: string }>(
-      'SELECT board_id FROM asset_references WHERE asset_id=$1',
+      'SELECT board_id FROM asset_references WHERE asset_id=$1 UNION SELECT id AS board_id FROM boards WHERE cover_asset=$1 AND deleted_at IS NULL',
       [assetId],
     );
     const query = request.query as { share?: string };

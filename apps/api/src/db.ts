@@ -18,7 +18,9 @@ export async function createDatabase(settings: Config): Promise<Database> {
     '\n' +
     (await readFile(new URL('./003-jobs.sql', import.meta.url), 'utf8')) +
     '\n' +
-    (await readFile(new URL('./004-history.sql', import.meta.url), 'utf8'));
+    (await readFile(new URL('./004-history.sql', import.meta.url), 'utf8')) +
+    '\n' +
+    (await readFile(new URL('./005-favorites.sql', import.meta.url), 'utf8'));
   if (settings.databaseUrl) {
     const pool = new pg.Pool({ connectionString: settings.databaseUrl, max: 10 });
     await pool.query(migration);

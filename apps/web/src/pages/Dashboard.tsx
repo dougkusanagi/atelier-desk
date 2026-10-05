@@ -1,7 +1,8 @@
+import { BoardIcon } from '../components/BoardIcon';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
-import { ArrowUpRight, Grid2X2, List, Plus, Star, Trash2, Layers } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowUpRight, Grid2X2, List, Plus, Star, Trash2, Layers, Copy } from 'lucide-react';
 import { BUILTIN_TEMPLATES } from '@atelier/domain';
 import { api, type BoardMeta } from '../lib/api';
 import { useWorkspace } from '../components/Shell';
@@ -20,6 +21,11 @@ export function Dashboard() {
     [error, setError] = useState(''),
     [filter, setFilter] = useState(''),
     [sort, setSort] = useState('recent');
+  const templates = useQuery({
+    queryKey: ['templates', workspaceId],
+    queryFn: () =>
+      api<{ items: Array<{ id: string; name: string }> }>('/templates?workspaceId=' + workspaceId),
+  });
   const items = boards
     .filter(
       (b) =>
@@ -31,7 +37,8 @@ export function Dashboard() {
       sort === 'title'
         ? a.title.localeCompare(b.title, 'pt-BR')
         : Number(b.favorite) - Number(a.favorite) ||
-          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+          new Date(b.last_visited ?? b.updated_at).getTime() -
+            new Date(a.last_visited ?? a.updated_at).getTime(),
     );
   const create = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -91,7 +98,7 @@ export function Dashboard() {
             <span>Templates para cada processo</span>
           </div>
           <div className="template-options">
-            {BUILTIN_TEMPLATES.map((item, i) => (
+            {(templates.data?.items ?? BUILTIN_TEMPLATES).map((item, i) => (
               <button
                 key={item.id}
                 className={'template-option template-' + i}
@@ -162,10 +169,20 @@ export function Dashboard() {
               {items.map((board, i) => (
                 <article className="dashboard-board" key={board.id}>
                   <Link className={'board-preview preview-' + (i % 4)} to={'/quadro/' + board.id}>
+                    {board.cover_asset && (
+                      <img
+                        className="board-cover"
+                        src={'/api/v1/assets/' + board.cover_asset + '/content?variant=thumbnail'}
+                        alt=""
+                        loading="lazy"
+                      />
+                    )}
                     <div className="preview-note" />
                     <div className="preview-note small" />
                     <div className="preview-swatch" />
-                    <span className="preview-letter">{board.title[0]}</span>
+                    <span className="preview-letter">
+                      <BoardIcon name={board.icon} size={30} />
+                    </span>
                   </Link>
                   <div className="dashboard-board-info">
                     <Link to={'/quadro/' + board.id}>
@@ -182,6 +199,25 @@ export function Dashboard() {
                     >
                       <Star size={15} fill={board.favorite ? 'currentColor' : 'none'} />
                     </button>
+                    {['owner', 'editor'].includes(board.role) && (
+                      <button
+                        className="icon-button"
+                        aria-label={'Duplicar ' + board.title}
+                        onClick={() => {
+                          void api<{ id: string }>('/boards/' + board.id + '/duplicate', {
+                            method: 'POST',
+                            body: '{}',
+                          })
+                            .then(async (result) => {
+                              await refresh();
+                              navigate('/quadro/' + result.id);
+                            })
+                            .catch((error) => useCanvas.getState().notify(error.message));
+                        }}
+                      >
+                        <Copy size={15} />
+                      </button>
+                    )}
                     {board.role === 'owner' && (
                       <button
                         className="icon-button danger"
