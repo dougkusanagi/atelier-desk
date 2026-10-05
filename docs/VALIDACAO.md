@@ -15,3 +15,11 @@
 - Migrations SQL, API Fastify, Argon2id, cookies HttpOnly, autenticação e WebSocket autenticado implementados.
 - PGlite é a alternativa local sem Docker; `DATABASE_URL` seleciona PostgreSQL convencional.
 - E-mails de desenvolvimento são gravados em `.data/mail`; produção usa SMTP. Nenhum e-mail real foi enviado.
+
+## Entrega 3 — aplicação conectada e recursos de projeto
+
+- `pnpm check`: lint, tipos, 31 testes e builds passaram.
+- Navegador: cadastro real, abertura do quadro, criação de nota, edição rica, confirmação de salvamento e persistência após recarregar verificados.
+- Integração: snapshots públicos sem histórico/dados privados, mutação de leitor bloqueada, comentários/menções, notificações deduplicadas, revogação, senha de link, MIME por conteúdo, download privado e SSRF.
+- Exportações: arquivos Markdown e ZIP, PNG decodificado com Sharp e PDF com assinatura válida gerados pelos jobs.
+- Não foi executada implantação externa; a configuração operacional e os testes E2E completos continuam em andamento.

@@ -8,6 +8,7 @@ export class RequestError extends Error {
   }
 }
 let csrf = '';
+export const getCsrf = () => csrf;
 export const setCsrf = (value: string) => {
   csrf = value;
 };

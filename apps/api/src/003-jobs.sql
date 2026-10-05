@@ -1,0 +1,3 @@
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS payload jsonb NOT NULL DEFAULT '{}';
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+INSERT INTO schema_migrations(version) VALUES(3) ON CONFLICT DO NOTHING;

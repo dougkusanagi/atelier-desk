@@ -13,6 +13,12 @@ import { Documents } from './documents';
 import { registerAuth } from './auth';
 import { registerBoards } from './boards';
 import { registerRealtime } from './realtime';
+import { registerSharing } from './sharing';
+import { registerComments } from './comments';
+import { Storage } from './storage';
+import { registerAssets } from './assets';
+import { registerPreviews } from './previews';
+import { registerExports } from './exports';
 export async function createApp(
   options: { settings?: Partial<Config>; database?: Database; logger?: boolean } = {},
 ) {
@@ -44,14 +50,12 @@ export async function createApp(
   });
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof ZodError)
-      return reply
-        .code(400)
-        .send({
-          code: 'VALIDATION_ERROR',
-          message: 'Confira os campos informados.',
-          fieldErrors: error.flatten().fieldErrors,
-          requestId: request.id,
-        });
+      return reply.code(400).send({
+        code: 'VALIDATION_ERROR',
+        message: 'Confira os campos informados.',
+        fieldErrors: error.flatten().fieldErrors,
+        requestId: request.id,
+      });
     if (error instanceof ApiError)
       return reply
         .code(error.status)
@@ -61,13 +65,11 @@ export async function createApp(
       error instanceof Error && 'statusCode' in error && typeof error.statusCode === 'number'
         ? error.statusCode
         : 500;
-    return reply
-      .code(status)
-      .send({
-        code: 'INTERNAL_ERROR',
-        message: 'Não foi possível concluir. Tente novamente.',
-        requestId: request.id,
-      });
+    return reply.code(status).send({
+      code: 'INTERNAL_ERROR',
+      message: 'Não foi possível concluir. Tente novamente.',
+      requestId: request.id,
+    });
   });
   app.get('/api/v1/health', async () => ({ ok: true }));
   app.get('/api/v1/ready', async () => {
@@ -78,7 +80,14 @@ export async function createApp(
   registerAuth(app, db, settings, documents);
   registerBoards(app, db, documents);
   registerRealtime(app, db, documents, settings.origin);
+  registerSharing(app, db, documents, settings);
+  registerComments(app, db, settings);
+  const storage = new Storage(settings);
+  registerAssets(app, db, storage, settings);
+  const exportWorker=registerExports(app, db, documents, storage);
+  registerPreviews(app, db);
   app.addHook('onClose', async () => {
+    await exportWorker.close();
     await Promise.all([...documents.rooms.values()].map((room) => room.queue));
     documents.close();
     if (!options.database) await db.close();

@@ -128,12 +128,10 @@ export function registerBoards(app: FastifyInstance, db: Database, documents: Do
       );
       await documents.create(tx, boardId, state);
     });
-    return reply
-      .code(201)
-      .send({
-        ...(await db.query<BoardRow>('SELECT * FROM boards WHERE id=$1', [boardId])).rows[0],
-        role: 'owner',
-      });
+    return reply.code(201).send({
+      ...(await db.query<BoardRow>('SELECT * FROM boards WHERE id=$1', [boardId])).rows[0],
+      role: 'owner',
+    });
   });
   app.get('/api/v1/boards/:id', async (request) => {
     const user = await auth(request),

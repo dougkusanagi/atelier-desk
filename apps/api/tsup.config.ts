@@ -8,5 +8,5 @@ export default defineConfig({
   sourcemap: true,
   noExternal: ['@atelier/domain'],
   clean: true,
-  onSuccess: 'cp src/migration.sql dist/migration.sql',
+  onSuccess: 'cp src/*.sql dist/',
 });

@@ -1,4 +1,5 @@
 import * as Y from 'yjs';
+import { richNodes, plainRich, writeRich, textNodes } from './rich';
 import {
   createCard,
   id,
@@ -26,7 +27,7 @@ export class BoardDocument {
     this.connectors = doc.getMap('connectors');
     this.undoManager = new Y.UndoManager([this.cards, this.connectors], {
       trackedOrigins: new Set([LOCAL_ORIGIN]),
-      captureTimeout: 0,
+      captureTimeout: 500,
     });
     this.doc.on('afterTransaction', this.refresh);
     this.refresh();
@@ -51,6 +52,15 @@ export class BoardDocument {
           (a, b) => a.order - b.order || a.id.localeCompare(b.id),
         );
       if (content.strokeItems) content.strokes = Object.values(content.strokeItems);
+      const fragment =
+        json.type === 'note' && this.doc.share.has('rich:' + key)
+          ? this.doc.getXmlFragment('rich:' + key)
+          : null;
+      if (fragment) {
+        content.rich = richNodes(fragment);
+        content.text = plainRich(content.rich);
+        if (!this.undoManager.scope.includes(fragment)) this.undoManager.addToScope(fragment);
+      }
       const signature = JSON.stringify(json),
         previous = this.cache.get(key);
       if (previous?.signature === signature) cards.push(previous.card);
@@ -67,7 +77,9 @@ export class BoardDocument {
     this.listeners.forEach((fn) => fn());
   };
   transact(fn: () => void) {
+    this.undoManager.stopCapturing();
     this.doc.transact(fn, LOCAL_ORIGIN);
+    this.undoManager.stopCapturing();
   }
   private mapCard(card: Card) {
     const map = new Y.Map<unknown>(),
@@ -76,7 +88,10 @@ export class BoardDocument {
       if (key !== 'content' && value !== undefined) map.set(key, value);
     });
     Object.entries(card.content).forEach(([key, value]) => {
-      if (!['tasks', 'strokes', 'taskItems', 'strokeItems'].includes(key) && value !== undefined)
+      if (
+        !['tasks', 'strokes', 'taskItems', 'strokeItems', 'rich'].includes(key) &&
+        value !== undefined
+      )
         content.set(key, value);
     });
     const tasks = new Y.Map<Y.Map<unknown>>();
@@ -94,12 +109,22 @@ export class BoardDocument {
   }
   add(type: CardType, point: Point) {
     const card = createCard(type, point);
-    this.transact(() => this.cards.set(card.id, this.mapCard(card)));
+    this.transact(() => {
+      this.cards.set(card.id, this.mapCard(card));
+      if (type === 'note') writeRich(this.doc.getXmlFragment('rich:' + card.id), textNodes(''));
+    });
     return card.id;
   }
   insert(cards: Card[], connectors: Connector[] = []) {
     this.transact(() => {
-      cards.forEach((c) => this.cards.set(c.id, this.mapCard(c)));
+      cards.forEach((c) => {
+        this.cards.set(c.id, this.mapCard(c));
+        if (c.type === 'note')
+          writeRich(
+            this.doc.getXmlFragment('rich:' + c.id),
+            c.content.rich ?? textNodes(c.content.text ?? ''),
+          );
+      });
       connectors.forEach((c) => {
         const map = new Y.Map<unknown>();
         Object.entries(c).forEach(([k, v]) => v !== undefined && map.set(k, v));
@@ -118,6 +143,12 @@ export class BoardDocument {
         if (key === 'content') {
           const content = map.get('content') as Y.Map<unknown>;
           Object.entries(value as CardContent).forEach(([k, v]) => {
+            if (k === 'text' && typeof v === 'string' && map.get('type') === 'note')
+              writeRich(this.doc.getXmlFragment('rich:' + cardId), textNodes(v));
+            if (k === 'rich' && Array.isArray(v) && map.get('type') === 'note') {
+              writeRich(this.doc.getXmlFragment('rich:' + cardId), (value as CardContent).rich!);
+              return;
+            }
             if (!['tasks', 'strokes'].includes(k))
               v === undefined ? content.delete(k) : content.set(k, v);
           });

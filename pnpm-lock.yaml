@@ -89,6 +89,9 @@ importers:
       '@fastify/websocket':
         specifier: 11.3.3
         version: 11.3.3
+      '@fontsource/inter':
+        specifier: 5.3.0
+        version: 5.3.0
       argon2:
         specifier: 0.45.1
         version: 0.45.1
@@ -116,6 +119,9 @@ importers:
       pg:
         specifier: 8.23.1
         version: 8.23.1
+      playwright:
+        specifier: 1.63.0
+        version: 1.63.0
       sanitize-html:
         specifier: 2.18.0
         version: 2.18.0

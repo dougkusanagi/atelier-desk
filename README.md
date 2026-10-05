@@ -14,19 +14,28 @@ Implementação original inspirada na experiência de organização espacial do 
 
 Cada entrega testável tem [validação registrada](docs/VALIDACAO.md), commit e push para `main`.
 
-## Executar a interface
+## Executar o projeto
 
 Requer Node.js 24 e pnpm.
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm dev:web
+pnpm exec playwright install chromium
+pnpm dev
 ```
 
-Abra `http://localhost:5174`. Nesta primeira entrega, o quadro é uma demonstração local; persistência e colaboração remota serão adicionadas nos próximos marcos.
+Abra `http://localhost:5174` e crie uma conta. A API roda na porta 3001.
+
+Sem `DATABASE_URL`, o projeto usa PostgreSQL embarcado persistente em `.data/postgres`. Assets privados ficam em `.data/objects`; e-mails locais ficam em `.data/mail`. Esses arquivos não são publicados no GitHub.
+
+Para confirmar um e-mail em desenvolvimento, abra o link no arquivo da caixa de saída local. Não há credenciais demonstrativas fixas.
+
+O projeto já oferece cartões, rich text, tarefas, desenho, uploads, colunas, conexões, quadros aninhados, templates, busca, comentários, links compartilháveis e exportações reais. [A matriz](docs/feature-matrix.md) diferencia implementações verificadas das exigências de produção ainda em andamento.
 
 ## Verificar
 
 ```sh
 pnpm check
 ```
+
+O comando executa lint, TypeScript, testes de domínio/integração e build. As integrações criam bancos e contas temporárias, verificam autorização e geram arquivos PNG/PDF/Markdown/ZIP reais.

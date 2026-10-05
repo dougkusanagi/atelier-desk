@@ -19,6 +19,7 @@ export type Stroke = {
   points: Array<Point & { pressure?: number }>;
 };
 export type CardContent = {
+  rich?: import('./rich').RichNode[];
   text?: string;
   title?: string;
   caption?: string;

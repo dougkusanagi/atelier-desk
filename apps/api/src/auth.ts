@@ -108,14 +108,12 @@ export function registerAuth(
         'Confirme seu e-mail — Atelier Desk',
         'Confirme seu e-mail: ' + settings.origin + '/verificar?token=' + verification,
       );
-      return reply
-        .code(201)
-        .send({
-          user: { id: userId, email: input.email, displayName: input.displayName, verified: false },
-          csrfToken,
-          workspaceId,
-          boardId,
-        });
+      return reply.code(201).send({
+        user: { id: userId, email: input.email, displayName: input.displayName, verified: false },
+        csrfToken,
+        workspaceId,
+        boardId,
+      });
     },
   );
   app.post(

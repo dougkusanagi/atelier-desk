@@ -11,7 +11,12 @@ export interface Database {
 }
 export async function createDatabase(settings: Config): Promise<Database> {
   await mkdir(settings.dataDir, { recursive: true });
-  const migration = await readFile(new URL('./migration.sql', import.meta.url), 'utf8');
+  const migration =
+    (await readFile(new URL('./migration.sql', import.meta.url), 'utf8')) +
+    '\n' +
+    (await readFile(new URL('./002-sharing.sql', import.meta.url), 'utf8')) +
+    '\n' +
+    (await readFile(new URL('./003-jobs.sql', import.meta.url), 'utf8'));
   if (settings.databaseUrl) {
     const pool = new pg.Pool({ connectionString: settings.databaseUrl, max: 10 });
     await pool.query(migration);
