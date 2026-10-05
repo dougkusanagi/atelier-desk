@@ -81,3 +81,11 @@
 - A abertura de subquadros usa uma cópia visual não interativa por 280ms. Guias têm fade e o drop retorna escala/rotação com spring.
 - Filhos de colunas recolhidas usam a coluna como proxy visual das conexões. A remoção padrão desagrupa filhos e pode ser desfeita; a opção explícita exclui coluna e cartões.
 - E2E verifica placeholder, inserção, recolhimento, remoção e undo.
+
+## Etapa 11 — exportações grandes e recursivas
+
+- `pnpm check`: 50 testes passaram. Integrações abrem os PNGs em blocos com Sharp, conferem o manifesto e leem PDFs A4 com pdf-lib.
+- PNG muito grande é entregue como ZIP com blocos de até 4.096 pixels e manifesto; PDF permite página inteira ou paginação A4 paisagem. Quadros muito grandes usam paginação automaticamente.
+- PDF e ZIP incluem descendentes acessíveis apenas quando solicitado. Markdown recursivo usa caminhos relativos entre documentos, assets e desenhos; Markdown avulso usa links autorizados para arquivos.
+- Jobs mantêm heartbeat, respeitam cancelamento e conferem novamente a permissão dos quadros antes de disponibilizar o download.
+- Cada operação limita 100 quadros, 256 páginas/blocos e 50MB de dados estruturados; solicitações maiores recebem uma mensagem para exportar uma seleção.

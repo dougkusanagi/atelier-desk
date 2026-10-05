@@ -16,7 +16,7 @@ Os estados abaixo descrevem evidência real. “Funcional” indica uma entrega 
 | Comentários e notificações      | `comments.ts`, `BoardPanels.tsx`                  | Menções, deduplicação e acesso            | Verificado por integração                               |
 | Compartilhamento e publicação   | `sharing.ts`, `PublicPage.tsx`                    | Leitor bloqueado, revogação e senha       | Senha, expiração, revogação e escopo verificados        |
 | Templates, busca e dashboard    | `templates.ts`, `Dashboard.tsx`, `boards.ts`      | Busca isolada, templates e dashboard      | Funcional; índices avançados pendentes                  |
-| PDF, PNG e Markdown             | `exports.ts`, `export.ts`                         | Quatro formatos reais em testes           | Funcional; paginação/tiles/recursão pendentes           |
+| PDF, PNG e Markdown             | `exports.ts`, `export.ts`                         | Quatro formatos reais em testes           | Paginação, blocos e descendentes verificados           |
 | Responsividade e acessibilidade | CSS, Radix, visão linear                          | Desktop funcional                         | Mobile/reduced motion e axe na entrada verificados      |
 | Desempenho com 1.000 cartões    | RBush, culling                                    | Motor implementado                        | 1.007 cartões, 27 DOM, p95 16,8ms no cenário medido     |
 | Infraestrutura e CI             | Monorepo, builds                                  | `pnpm check` passou                       | Compose, CI, builds containers e PostgreSQL verificados |

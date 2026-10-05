@@ -395,6 +395,9 @@ export function CommentsPanel({
 export function ExportPanel({ boardId, selected }: { boardId: string; selected: string[] }) {
   const [format, setFormat] = useState('png'),
     [scope, setScope] = useState('all'),
+    [pdfLayout, setPdfLayout] = useState('whole'),
+    [recursive, setRecursive] = useState(false),
+    [background, setBackground] = useState('#F5F4F0'),
     [scale, setScale] = useState('1'),
     [job, setJob] = useState<string | null>(null),
     [error, setError] = useState('');
@@ -413,6 +416,10 @@ export function ExportPanel({ boardId, selected }: { boardId: string; selected: 
         method: 'POST',
         body: JSON.stringify({
           format,
+          pdfLayout,
+          includeDescendants:
+            recursive && scope === 'all' && ['pdf', 'zip', 'markdown'].includes(format),
+          background,
           scale: Number(scale),
           selection: scope === 'selected' ? selected : undefined,
         }),
@@ -428,6 +435,7 @@ export function ExportPanel({ boardId, selected }: { boardId: string; selected: 
         Formato
         <select value={format} onChange={(e) => setFormat(e.target.value)}>
           <option value="png">PNG · imagem do quadro</option>
+          <option value="png-zip">PNG em blocos · ZIP</option>
           <option value="pdf">PDF · documento visual</option>
           <option value="markdown">Markdown · conteúdo estruturado</option>
           <option value="zip">Markdown + arquivos · ZIP</option>
@@ -442,7 +450,7 @@ export function ExportPanel({ boardId, selected }: { boardId: string; selected: 
           </option>
         </select>
       </label>
-      {format === 'png' && (
+      {['png', 'png-zip'].includes(format) && (
         <label>
           Resolução
           <select value={scale} onChange={(e) => setScale(e.target.value)}>
@@ -451,6 +459,40 @@ export function ExportPanel({ boardId, selected }: { boardId: string; selected: 
           </select>
         </label>
       )}
+      {format === 'pdf' && (
+        <label>
+          Páginas
+          <select value={pdfLayout} onChange={(e) => setPdfLayout(e.target.value)}>
+            <option value="whole">Uma página com o quadro inteiro</option>
+            <option value="a4">A4 paisagem · várias páginas</option>
+          </select>
+        </label>
+      )}
+      {['png', 'png-zip', 'pdf'].includes(format) && (
+        <label>
+          Fundo
+          <select value={background} onChange={(e) => setBackground(e.target.value)}>
+            <option value="#F5F4F0">Papel</option>
+            <option value="#FFFFFF">Branco</option>
+            <option value="#191B1F">Escuro</option>
+            {format !== 'pdf' && <option value="transparent">Transparente</option>}
+          </select>
+        </label>
+      )}
+      {['pdf', 'zip', 'markdown'].includes(format) && scope === 'all' && (
+        <label className="check-label">
+          <input
+            type="checkbox"
+            checked={recursive}
+            onChange={(e) => setRecursive(e.target.checked)}
+          />
+          Incluir descendentes acessíveis{format === 'markdown' && ' · entregue em ZIP'}
+        </label>
+      )}
+      <p className="permission-note">
+        PNG acima de 16.384px ou 100MP é entregue em blocos com um manifesto. Quadros muito grandes
+        usam PDF paginado.
+      </p>
       {job && query.data?.status === 'ready' ? (
         <a className="primary-button" href={'/api/v1/jobs/' + job + '/download'} download>
           <Download size={16} />

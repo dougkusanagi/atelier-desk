@@ -90,6 +90,10 @@ export function boardMarkdown(
     c.content.assetId
       ? 'assets/' + c.content.assetId + '/' + (c.content.filename ?? 'arquivo')
       : (c.content.url ?? ''),
+  options: {
+    boardPath?: (card: Card) => string | undefined;
+    drawingPath?: (card: Card) => string;
+  } = {},
 ): string {
   const cardText = (card: Card): string => {
     const c = card.content;
@@ -120,8 +124,21 @@ export function boardMarkdown(
       );
     if (card.type === 'link')
       return '[' + (c.title ?? c.url) + '](' + c.url + ')\n\n' + (c.description ?? '') + '\n\n';
-    if (card.type === 'board') return heading + '[Abrir quadro](boards/' + c.boardId + '.md)\n\n';
-    if (card.type === 'drawing') return heading + '[Desenho](drawings/' + card.id + '.svg)\n\n';
+    if (card.type === 'board') {
+      const path = options.boardPath
+        ? options.boardPath(card)
+        : c.boardId
+          ? 'boards/' + c.boardId + '.md'
+          : undefined;
+      return heading + (path ? '[Abrir quadro](' + path + ')' : 'Quadro aninhado') + '\n\n';
+    }
+    if (card.type === 'drawing')
+      return (
+        heading +
+        '[Desenho](' +
+        (options.drawingPath?.(card) ?? 'drawings/' + card.id + '.svg') +
+        ')\n\n'
+      );
     return (
       heading +
       '[' +

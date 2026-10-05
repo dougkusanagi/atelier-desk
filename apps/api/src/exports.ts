@@ -1,3 +1,5 @@
+import { PDFDocument } from 'pdf-lib';
+import { paginatedPdf, tiledPng } from './exportPages';
 import { userReadModel } from './readModel';
 import type { FastifyInstance } from 'fastify';
 import { createRequire } from 'node:module';
@@ -25,13 +27,19 @@ const require = createRequire(import.meta.url);
 type ExportPayload = {
   state: BoardState;
   title: string;
-  format: 'png' | 'pdf' | 'markdown' | 'zip';
+  format: 'png' | 'png-zip' | 'pdf' | 'markdown' | 'zip';
+  pdfLayout?: 'whole' | 'a4';
+  boardId?: string;
+  related?: Array<{ boardId: string; title: string; state: BoardState }>;
   scale: number;
   background: string;
 };
 async function exportHtml(payload: ExportPayload, db: Database, storage: Storage) {
   const cards = effectiveCards(payload.state.cards),
     box = bounds(cards) ?? { x: 0, y: 0, width: 600, height: 400 };
+  const layers = new Map(
+    [...cards].sort((a, b) => a.z - b.z || a.id.localeCompare(b.id)).map((c, i) => [c.id, i + 1]),
+  );
   const width = Math.ceil(box.width + 64),
     height = Math.ceil(box.height + 64),
     images = new Map<string, string>();
@@ -115,11 +123,7 @@ async function exportHtml(payload: ExportPayload, db: Database, storage: Storage
       'px;min-height:' +
       card.height +
       'px;z-index:' +
-      (card.type === 'column'
-        ? 0
-        : [...cards]
-            .sort((a, b) => a.z - b.z || a.id.localeCompare(b.id))
-            .findIndex((c) => c.id === card.id) + 1) +
+      (card.type === 'column' ? 0 : layers.get(card.id)) +
       ';background:' +
       escape(card.type === 'color' ? (c.hex ?? '#FFFFFF') : card.color) +
       '">' +
@@ -170,7 +174,9 @@ async function exportHtml(payload: ExportPayload, db: Database, storage: Storage
     'px"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#747B86"/></marker></defs>' +
     lines +
     '</svg>' +
-    cards.map(render).join('') +
+    (cards.length
+      ? cards.map(render).join('')
+      : '<p style="padding:32px">Este quadro ainda não contém cartões.</p>') +
     '</div></body></html>';
   return { html, width, height };
 }
@@ -214,6 +220,11 @@ export class ExportWorker {
         return result.rows[0];
       });
       if (!job) return;
+      const heartbeat = setInterval(() => {
+        void this.db
+          .query("UPDATE jobs SET updated_at=now() WHERE id=$1 AND status='processing'", [job.id])
+          .catch(() => {});
+      }, 30000);
       try {
         await requireExport(this.db, job.board_id, job.user_id);
         const payload = job.payload,
@@ -221,89 +232,104 @@ export class ExportWorker {
         let data: Buffer,
           filename = stem + '.' + payload.format,
           mime = 'application/octet-stream';
+        for (const related of payload.related ?? [])
+          await requireExport(this.db, related.boardId, job.user_id);
+        const records = [
+          { boardId: payload.boardId ?? job.board_id, title: payload.title, state: payload.state },
+          ...(payload.related ?? []),
+        ];
         if (payload.format === 'markdown' || payload.format === 'zip') {
-          const zip = new JSZip(),
-            markdown = boardMarkdown(payload.state, payload.title, (card) =>
-              card.content.assetId
-                ? 'assets/' + card.content.assetId + '/' + (card.content.filename ?? 'arquivo')
-                : (card.content.url ?? ''),
+          const zip = new JSZip();
+          const assets = new Map<string, { storage_key: string; filename: string }>();
+          for (const record of records)
+            for (const card of record.state.cards)
+              if (card.content.assetId && !assets.has(card.content.assetId)) {
+                const asset = (
+                  await this.db.query<{ storage_key: string; filename: string }>(
+                    'SELECT storage_key,filename FROM assets WHERE id=$1',
+                    [card.content.assetId],
+                  )
+                ).rows[0];
+                if (asset)
+                  assets.set(card.content.assetId, {
+                    ...asset,
+                    filename:
+                      asset.filename.replace(/[\\/]/g, '_').replace(/^\.+/, '') || 'arquivo',
+                  });
+              }
+          const markdown = (record: (typeof records)[number], root: boolean) =>
+            boardMarkdown(
+              record.state,
+              record.title,
+              (card) =>
+                card.content.assetId
+                  ? payload.format === 'markdown'
+                    ? this.storage.settings.origin +
+                      '/api/v1/assets/' +
+                      card.content.assetId +
+                      '/content?download=1'
+                    : (root ? '' : '../') +
+                      'assets/' +
+                      card.content.assetId +
+                      '/' +
+                      encodeURIComponent(assets.get(card.content.assetId)?.filename ?? 'arquivo')
+                  : (card.content.url ?? ''),
+              {
+                boardPath: (card) =>
+                  records.some((record) => record.boardId === card.content.boardId)
+                    ? card.content.boardId === payload.boardId
+                      ? (root ? '' : '../') + encodeURIComponent(stem) + '.md'
+                      : (root ? 'boards/' : '') + card.content.boardId + '.md'
+                    : undefined,
+                drawingPath: (card) => (root ? '' : '../') + 'drawings/' + card.id + '.svg',
+              },
             );
           if (payload.format === 'markdown') {
-            data = Buffer.from(markdown);
+            data = Buffer.from(markdown(records[0], true));
             filename = stem + '.md';
             mime = 'text/markdown; charset=utf-8';
           } else {
-            zip.file(stem + '.md', markdown);
-            for (const card of payload.state.cards) {
-              if (card.type === 'drawing')
-                zip.file('drawings/' + card.id + '.svg', drawingSvg(card));
-              if (card.content.assetId) {
-                const result = await this.db.query<{ storage_key: string; filename: string }>(
-                  'SELECT storage_key,filename FROM assets WHERE id=$1',
-                  [card.content.assetId],
-                );
-                if (result.rows[0])
-                  zip.file(
-                    'assets/' + card.content.assetId + '/' + result.rows[0].filename,
-                    await this.storage.buffer(result.rows[0].storage_key),
-                  );
-              }
+            for (const [index, record] of records.entries()) {
+              zip.file(
+                index === 0 ? stem + '.md' : 'boards/' + record.boardId + '.md',
+                markdown(record, index === 0),
+              );
+              for (const card of record.state.cards)
+                if (card.type === 'drawing')
+                  zip.file('drawings/' + card.id + '.svg', drawingSvg(card));
             }
+            for (const [assetId, asset] of assets)
+              zip.file(
+                'assets/' + assetId + '/' + asset.filename,
+                await this.storage.buffer(asset.storage_key),
+              );
             data = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
             filename = stem + '.zip';
             mime = 'application/zip';
           }
         } else {
-          const rendered = await exportHtml(payload, this.db, this.storage);
-          if (!this.browser) this.browser = await chromium.launch({ headless: true });
-          const context = await this.browser.newContext({
-            viewport: {
-              width: Math.min(16384, rendered.width),
-              height: Math.min(16384, rendered.height),
-            },
-            deviceScaleFactor: payload.scale,
-            javaScriptEnabled: false,
-          });
-          try {
-            await context.route(/^https?:\/\//, (route) => route.abort());
-            const page = await context.newPage();
-            await page.setContent(rendered.html, { waitUntil: 'load' });
-            await page.evaluate(() => document.fonts.ready);
-            await this.db.query('UPDATE jobs SET progress=65,updated_at=now() WHERE id=$1', [
-              job.id,
-            ]);
-            if (payload.format === 'png') {
-              if (
-                rendered.width * payload.scale > 16384 ||
-                rendered.height * payload.scale > 16384 ||
-                rendered.width * rendered.height * payload.scale ** 2 > 100_000_000
-              )
-                throw new ApiError(
-                  413,
-                  'EXPORT_TOO_LARGE',
-                  'Esta imagem excede 16.384px ou 100MP. Exporte uma seleção ou use PDF.',
-                );
-              data = await page.screenshot({
-                type: 'png',
-                fullPage: true,
-                omitBackground: payload.background === 'transparent',
-              });
-              mime = 'image/png';
-            } else {
-              data = await page.pdf({
-                width: rendered.width + 'px',
-                height: rendered.height + 'px',
-                printBackground: true,
-                margin: { top: 0, right: 0, bottom: 0, left: 0 },
-                tagged: true,
-              });
-              mime = 'application/pdf';
+          const rendered = await this.renderVisual(payload, job.id);
+          data = rendered.data;
+          mime = rendered.mime;
+          filename = stem + '.' + rendered.extension;
+          if (payload.format === 'pdf' && records.length > 1) {
+            const combined = await PDFDocument.load(data);
+            for (const record of records.slice(1)) {
+              const part = await this.renderVisual(
+                { ...payload, title: record.title, state: record.state },
+                job.id,
+              );
+              const document = await PDFDocument.load(part.data);
+              for (const page of await combined.copyPages(document, document.getPageIndices()))
+                combined.addPage(page);
             }
-          } finally {
-            await context.close();
+            combined.setTitle(payload.title);
+            data = Buffer.from(await combined.save());
           }
         }
         await requireExport(this.db, job.board_id, job.user_id);
+        for (const related of payload.related ?? [])
+          await requireExport(this.db, related.boardId, job.user_id);
         const current = await this.db.query<{ status: string }>(
           'SELECT status FROM jobs WHERE id=$1',
           [job.id],
@@ -317,12 +343,100 @@ export class ExportWorker {
         );
       } catch (error) {
         await this.db.query(
-          "UPDATE jobs SET status='failed',error=$2,updated_at=now() WHERE id=$1",
+          "UPDATE jobs SET status='failed',error=$2,updated_at=now() WHERE id=$1 AND status<>'canceled'",
           [job.id, error instanceof Error ? error.message : 'Falha na exportação'],
         );
+      } finally {
+        clearInterval(heartbeat);
       }
     } finally {
       this.busy = false;
+    }
+  }
+  private async renderVisual(payload: ExportPayload, jobId: string) {
+    const rendered = await exportHtml(payload, this.db, this.storage);
+    if (!this.browser) this.browser = await chromium.launch({ headless: true });
+    const context = await this.browser.newContext({
+      viewport: { width: Math.min(4096, rendered.width), height: Math.min(4096, rendered.height) },
+      deviceScaleFactor: payload.scale,
+      javaScriptEnabled: false,
+    });
+    try {
+      await context.route(/^https?:\/\//, (route) => route.abort());
+      const page = await context.newPage();
+      await page.setContent(rendered.html, { waitUntil: 'load' });
+      await page.evaluate(() => document.fonts.ready);
+      const measured = await page.evaluate(() => {
+        const board = document.querySelector<HTMLElement>('.board')!,
+          rect = board.getBoundingClientRect();
+        let width = rect.width,
+          height = rect.height;
+        for (const card of board.querySelectorAll('article.card')) {
+          const cardRect = card.getBoundingClientRect();
+          width = Math.max(width, cardRect.right + 32);
+          height = Math.max(height, cardRect.bottom + 32);
+        }
+        board.style.width = Math.ceil(width) + 'px';
+        board.style.height = Math.ceil(height) + 'px';
+        return { width: Math.ceil(width), height: Math.ceil(height) };
+      });
+      await this.db.query('UPDATE jobs SET progress=65,updated_at=now() WHERE id=$1', [jobId]);
+      if (payload.format === 'pdf') {
+        const paginated =
+          payload.pdfLayout === 'a4' || measured.width > 16384 || measured.height > 16384;
+        return {
+          data: paginated
+            ? await paginatedPdf(page, measured.width, measured.height, payload.title)
+            : await page.pdf({
+                width: measured.width + 'px',
+                height: measured.height + 'px',
+                printBackground: true,
+                margin: { top: 0, right: 0, bottom: 0, left: 0 },
+                tagged: true,
+              }),
+          mime: 'application/pdf',
+          extension: 'pdf',
+        };
+      }
+      if (
+        payload.format === 'png-zip' ||
+        measured.width * payload.scale > 16384 ||
+        measured.height * payload.scale > 16384 ||
+        measured.width * measured.height * payload.scale ** 2 > 100_000_000
+      ) {
+        const data = await tiledPng(
+          page,
+          measured.width,
+          measured.height,
+          payload.scale,
+          payload.background === 'transparent',
+          async (done, total) => {
+            const status = (
+              await this.db.query<{ status: string }>('SELECT status FROM jobs WHERE id=$1', [
+                jobId,
+              ])
+            ).rows[0]?.status;
+            if (status === 'canceled')
+              throw new ApiError(409, 'EXPORT_CANCELED', 'Exportação cancelada.');
+            await this.db.query('UPDATE jobs SET progress=$2,updated_at=now() WHERE id=$1', [
+              jobId,
+              65 + Math.floor((30 * done) / total),
+            ]);
+          },
+        );
+        return { data, mime: 'application/zip', extension: 'blocos.zip' };
+      }
+      return {
+        data: await page.screenshot({
+          type: 'png',
+          fullPage: true,
+          omitBackground: payload.background === 'transparent',
+        }),
+        mime: 'image/png',
+        extension: 'png',
+      };
+    } finally {
+      await context.close();
     }
   }
   async close() {
@@ -348,7 +462,9 @@ export function registerExports(
     requireRole(access.role, 'viewer');
     const input = z
       .object({
-        format: z.enum(['png', 'pdf', 'markdown', 'zip']),
+        format: z.enum(['png', 'png-zip', 'pdf', 'markdown', 'zip']),
+        pdfLayout: z.enum(['whole', 'a4']).default('whole'),
+        includeDescendants: z.boolean().default(false),
         scale: z.union([z.literal(1), z.literal(2)]).default(1),
         selection: z.array(uuid).max(10000).optional(),
         background: z.enum(['#F5F4F0', '#FFFFFF', '#191B1F', 'transparent']).default('#F5F4F0'),
@@ -372,6 +488,39 @@ export function registerExports(
         ),
       };
     }
+    const related: NonNullable<ExportPayload['related']> = [];
+    if (input.includeDescendants) {
+      if (input.selection || ['png', 'png-zip'].includes(input.format))
+        throw new ApiError(
+          400,
+          'EXPORT_SCOPE',
+          'Use PDF ou ZIP do quadro inteiro para incluir descendentes.',
+        );
+      const tree = await db.query<{ id: string }>(
+        `WITH RECURSIVE tree AS (SELECT id,parent_id,0 AS depth FROM boards WHERE id=$1 AND deleted_at IS NULL UNION ALL SELECT b.id,b.parent_id,tree.depth+1 FROM boards b JOIN tree ON b.parent_id=tree.id WHERE b.deleted_at IS NULL AND tree.depth<49) SELECT id FROM tree WHERE id<>$1 ORDER BY depth`,
+        [id],
+      );
+      if (tree.rows.length > 99)
+        throw new ApiError(413, 'EXPORT_LIMIT', 'Exporte até 100 quadros por operação.');
+      for (const child of tree.rows) {
+        try {
+          const access = await requireExport(db, child.id, user.id);
+          related.push({
+            boardId: child.id,
+            title: access.board.title,
+            state: await userReadModel(db, await documents.snapshot(child.id), user.id),
+          });
+        } catch (error) {
+          if (!(error instanceof ApiError) || ![403, 404].includes(error.status)) throw error;
+        }
+      }
+    }
+    if (Buffer.byteLength(JSON.stringify([state, related])) > 50 * 1024 * 1024)
+      throw new ApiError(
+        413,
+        'EXPORT_LIMIT',
+        'O conteúdo excede 50MB de dados estruturados. Exporte uma seleção menor.',
+      );
     const jobId = crypto.randomUUID();
     await db.query(
       'INSERT INTO jobs(id,user_id,board_id,type,status,payload) VALUES($1,$2,$3,$4,$5,$6)',
@@ -383,8 +532,11 @@ export function registerExports(
         'queued',
         JSON.stringify({
           state,
+          related,
+          boardId: id,
           title: access.board.title,
-          format: input.format,
+          format: input.includeDescendants && input.format === 'markdown' ? 'zip' : input.format,
+          pdfLayout: input.pdfLayout,
           scale: input.scale,
           background: input.background,
         }),
@@ -421,10 +573,13 @@ export function registerExports(
         output_key: string;
         filename: string;
         mime: string;
+        payload: ExportPayload;
       }>("SELECT * FROM jobs WHERE id=$1 AND user_id=$2 AND status='ready'", [id, user.id]),
       job = result.rows[0];
     if (!job) throw new ApiError(404, 'JOB_NOT_READY', 'Exportação não disponível.');
     await requireExport(db, job.board_id, user.id);
+    for (const related of job.payload.related ?? [])
+      await requireExport(db, related.boardId, user.id);
     const file = await storage.stream(job.output_key);
     return reply
       .header('Cache-Control', 'private, no-store')
