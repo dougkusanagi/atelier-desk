@@ -1,3 +1,4 @@
+import { userReadModel } from './readModel';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import * as Y from 'yjs';
@@ -25,16 +26,46 @@ export function registerRealtime(
       const access = await boardRole(db, id, user.id),
         room = await documents.get(id),
         clientId = crypto.randomUUID();
-      const listener = (event: Record<string, unknown>) => send(event);
+      let role = access.role;
+      const sendState = async (type: 'sync' | 'snapshot') => {
+        const current = await boardRole(db, id, user.id);
+        role = current.role;
+        send({
+          type,
+          state: await userReadModel(db, await documents.snapshot(id), user.id),
+          epoch: room.epoch,
+          sequence: room.sequence,
+          role,
+          clientId,
+        });
+      };
+      let delivery = Promise.resolve();
+      const listener = (event: Record<string, unknown>) => {
+        delivery = delivery
+          .then(async () => {
+            if (socket.readyState !== 1) return;
+            if (event.type !== 'update') {
+              send(event);
+              return;
+            }
+            const current = await boardRole(db, id, user.id);
+            role = current.role;
+            if (['owner', 'editor'].includes(role)) send(event);
+            else await sendState('snapshot');
+          })
+          .catch(() => socket.close(1008, 'ACCESS_REVOKED'));
+      };
       room.listeners.add(listener);
-      send({
-        type: 'sync',
-        update: Buffer.from(Y.encodeStateAsUpdate(room.board.doc)).toString('base64'),
-        epoch: room.epoch,
-        sequence: room.sequence,
-        role: access.role,
-        clientId,
-      });
+      if (['owner', 'editor'].includes(role))
+        send({
+          type: 'sync',
+          update: Buffer.from(Y.encodeStateAsUpdate(room.board.doc)).toString('base64'),
+          epoch: room.epoch,
+          sequence: room.sequence,
+          role,
+          clientId,
+        });
+      else await sendState('sync');
       socket.on('message', (raw: Buffer) => {
         void (async () => {
           if (raw.toString().length > 3_000_000)
@@ -94,6 +125,11 @@ export function registerRealtime(
       const timer = setInterval(() => {
         void currentUser(db, request)
           .then(() => boardRole(db, id, user.id))
+          .then(async (current) => {
+            if (current.role === role) return;
+            if (['owner', 'editor'].includes(current.role)) socket.close(1012, 'ROLE_CHANGED');
+            else await sendState('snapshot');
+          })
           .catch(() => socket.close(1008, 'ACCESS_REVOKED'));
       }, 4000);
       cleanup = () => {

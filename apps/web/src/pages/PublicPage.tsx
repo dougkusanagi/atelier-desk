@@ -38,13 +38,8 @@ export function PublicPage({ published = false }: { published?: boolean }) {
     if (query.data) {
       const next = query.data.state;
       if (meta.get('version') === next.revision) return;
-      document.doc.transact(() => {
-        for (const key of document.cards.keys())
-          if (!next.cards.some((c) => c.id === key)) document.cards.delete(key);
-        for (const key of document.connectors.keys()) document.connectors.delete(key);
-        document.insert(next.cards, next.connectors);
-        meta.set('version', next.revision);
-      }, 'remote');
+      document.replaceSnapshot(next);
+      meta.set('version', next.revision);
     }
   }, [query.data, document]);
   useEffect(() => {

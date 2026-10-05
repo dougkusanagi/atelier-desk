@@ -56,3 +56,9 @@
 - Histórico paginado de 30 dias permite desfazer/refazer as próprias alterações após recarga e reinício da API. StackItems causais do Yjs são persistidos; alterações de outros participantes são preservadas.
 - Integrações verificam undo/redo de texto concorrente após reinício, proteção de um cartão criado localmente e posteriormente editado por outra pessoa e bloqueio de undo de outro autor.
 - A segunda execução remota de CI confirmou os fluxos funcionais, mas mediu p95 66,6ms no benchmark. O canvas foi ajustado para evitar consultas DOM por cartão e renders do editor a cada frame de câmera. O resultado local continua p95 16,8ms; a execução remota seguinte será registrada separadamente.
+
+## Etapa 8 — modelos de leitura e CI remoto
+
+- `pnpm check`: 42 testes passaram. Leitores e comentaristas recebem snapshots visíveis no bootstrap e WebSocket; somente editores recebem o documento causal.
+- Integração WebSocket verifica que texto de um cartão excluído não aparece no bootstrap nem nas atualizações do leitor.
+- GitHub Actions `37336616924` passou integralmente no commit `931c56f`: checks estáticos, PostgreSQL externo e nove cenários Chromium, incluindo o benchmark.

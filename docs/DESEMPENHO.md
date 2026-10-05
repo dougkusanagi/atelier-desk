@@ -9,3 +9,5 @@ Esses números evidenciam aproximadamente 60fps no cenário medido; não garante
 RBush indexa retângulos em coordenadas do mundo. O canvas renderiza apenas o viewport com margem de 400px, além da seleção/cartão em edição. Movimentos usam previews locais por frame e fazem uma transação CRDT ao soltar. Notas usam editor carregado separadamente, imagens são carregadas sob demanda e atualizações de presença são limitadas a 20Hz.
 
 No runner GitHub Actions, a execução `37334413720` mediu mediana 33,3ms e p95 66,6ms, acima do limite de regressão. Em resposta, removemos consultas DOM por cartão na culling e a assinatura de câmera no componente de edição. Essa correção mantém o teste exigente; resultados locais não substituem a validação remota.
+
+A execução remota seguinte, `37336616924` no commit `931c56f`, passou o benchmark com o mesmo limite de p95 inferior a 34ms, além das verificações funcionais.

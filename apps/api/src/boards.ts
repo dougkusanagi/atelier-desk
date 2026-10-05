@@ -1,3 +1,4 @@
+import { userReadModel } from './readModel';
 import * as Y from 'yjs';
 import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
@@ -256,7 +257,9 @@ export function registerBoards(app: FastifyInstance, db: Database, documents: Do
     );
     return {
       board: { ...access.board, role: access.role },
-      update: Buffer.from(Y.encodeStateAsUpdate(room.board.doc)).toString('base64'),
+      ...(['owner', 'editor'].includes(access.role)
+        ? { update: Buffer.from(Y.encodeStateAsUpdate(room.board.doc)).toString('base64') }
+        : { state: await userReadModel(db, await documents.snapshot(id), user.id) }),
       epoch: room.epoch,
       sequence: room.sequence,
     };

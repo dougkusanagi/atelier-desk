@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { Socket } from 'node:net';
 import sharp from 'sharp';
 import * as Y from 'yjs';
 import { BoardDocument } from '@atelier/domain';
@@ -195,6 +196,55 @@ describe('compartilhamento, arquivos, comentários e exportações', () => {
       headers: headers(reader),
     });
     expect(meta.json().role).toBe('viewer');
+  });
+  it('entrega ao leitor bootstrap e WebSocket sem texto excluído ou histórico CRDT', async () => {
+    const board = new BoardDocument();
+    const secretId = board.add('note', { x: 40, y: 40 });
+    board.patch(secretId, {
+      content: { text: 'Conteúdo excluído que nunca deve chegar ao leitor' },
+    });
+    board.remove([secretId]);
+    const commit = () =>
+      instance.documents.update(
+        owner.boardId,
+        owner.id,
+        Y.encodeStateAsUpdate(board.doc),
+        1,
+        crypto.randomUUID(),
+      );
+    await commit();
+    const response = await instance.app.inject({
+      url: '/api/v1/boards/' + owner.boardId + '/bootstrap',
+      headers: headers(reader),
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().update).toBeUndefined();
+    expect(response.json().state.cards.some((c: { id: string }) => c.id === secretId)).toBe(false);
+    expect(response.body).not.toContain('Conteúdo excluído');
+    const connection = new Socket();
+    Object.defineProperty(connection, 'remoteAddress', { value: '127.0.0.1' });
+    const messages: Array<Record<string, unknown>> = [];
+    const ws = await instance.app.injectWS(
+      '/collab/' + owner.boardId,
+      { socket: connection, headers: { ...headers(reader), origin: 'http://localhost:5174' } },
+      {
+        onInit: (client: { on: (event: string, listener: (raw: Buffer) => void) => void }) => {
+          client.on('message', (raw) => messages.push(JSON.parse(raw.toString())));
+        },
+      },
+    );
+    await vi.waitFor(() => expect(messages.map((m) => m.type)).toContain('sync'));
+    expect(messages.find((m) => m.type === 'sync')?.update).toBeUndefined();
+    const visible = board.add('note', { x: 400, y: 40 });
+    board.patch(visible, { content: { text: 'Atualização visível ao leitor' } });
+    await commit();
+    await vi.waitFor(() => expect(messages.some((m) => m.type === 'snapshot')).toBe(true));
+    expect(JSON.stringify(messages)).not.toContain('Conteúdo excluído');
+    expect(JSON.stringify(messages)).toContain('Atualização visível');
+    expect(messages.some((m) => m.type === 'update')).toBe(false);
+    ws.close();
+    connection.destroy();
+    board.destroy();
   });
   it('permite comentários e cria uma notificação por menção', async () => {
     const grant = await instance.app.inject({

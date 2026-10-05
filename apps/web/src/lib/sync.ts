@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import { IndexeddbPersistence } from 'y-indexeddb';
-import { BoardDocument } from '@atelier/domain';
+import { BoardDocument, type BoardState } from '@atelier/domain';
 import { api, decode, encode, RequestError, type BoardMeta, type User } from './api';
 import { cache } from './cache';
 export type Presence = {
@@ -13,7 +13,13 @@ export type Presence = {
   updatedAt: number;
 };
 export type SaveState = 'loading' | 'saving' | 'saved' | 'offline' | 'failed' | 'denied';
-type Bootstrap = { board: BoardMeta; update: string; epoch: number; sequence: number };
+type Bootstrap = {
+  board: BoardMeta;
+  update?: string;
+  state?: BoardState;
+  epoch: number;
+  sequence: number;
+};
 export function useBoardSync(boardId: string, user: User) {
   const [board, setBoard] = useState<BoardDocument | null>(null),
     [meta, setMeta] = useState<BoardMeta | null>(null);
@@ -103,7 +109,8 @@ export function useBoardSync(boardId: string, user: User) {
         setMeta(bootstrap.board);
         authorized = ['owner', 'editor'].includes(bootstrap.board.role);
         await cache.put('metadata', key, bootstrap.board);
-        Y.applyUpdate(doc, decode(bootstrap.update), 'bootstrap');
+        if (bootstrap.state) document.replaceSnapshot(bootstrap.state);
+        else if (bootstrap.update) Y.applyUpdate(doc, decode(bootstrap.update), 'bootstrap');
         setBoard(document);
         const url = new URL('/collab/' + boardId, window.location.href);
         url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -115,7 +122,12 @@ export function useBoardSync(boardId: string, user: User) {
             clientId = message.clientId as string;
             epochRef.current = message.epoch as number;
             retryCount = 0;
-            Y.applyUpdate(doc, decode(message.update as string), 'remote');
+            authorized = ['owner', 'editor'].includes(message.role as string);
+            setMeta((current) =>
+              current ? { ...current, role: message.role as BoardMeta['role'] } : current,
+            );
+            if (message.state) document.replaceSnapshot(message.state as BoardState);
+            else Y.applyUpdate(doc, decode(message.update as string), 'remote');
             if (authorized) {
               const remote = new Y.Doc();
               Y.applyUpdate(remote, decode(message.update as string));
@@ -134,6 +146,14 @@ export function useBoardSync(boardId: string, user: User) {
                 void cache.delete('outbox', key);
               }
             } else setStatus('saved');
+            void persist();
+          } else if (message.type === 'snapshot') {
+            authorized = false;
+            setMeta((current) =>
+              current ? { ...current, role: message.role as BoardMeta['role'] } : current,
+            );
+            document.replaceSnapshot(message.state as BoardState);
+            setStatus('saved');
             void persist();
           } else if (message.type === 'update') {
             Y.applyUpdate(doc, decode(message.update as string), 'remote');

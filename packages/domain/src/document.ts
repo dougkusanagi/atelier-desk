@@ -133,6 +133,14 @@ export class BoardDocument {
     map.set('content', content);
     return map;
   }
+  replaceSnapshot(state: BoardState) {
+    this.doc.transact(() => {
+      this.cards.clear();
+      this.connectors.clear();
+      this.insert(state.cards, state.connectors);
+    }, 'remote');
+    this.undoManager.clear();
+  }
   add(type: CardType, point: Point) {
     const card = createCard(type, point);
     this.transact(() => {
