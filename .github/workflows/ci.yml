@@ -1,0 +1,42 @@
+name: Qualidade
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_USER: atelier
+          POSTGRES_DB: atelier
+          POSTGRES_PASSWORD: ci-isolated-test
+        ports: [5487:5432]
+        options: --health-cmd "pg_isready -U atelier -d atelier" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm check
+      - run: pnpm test:postgres
+        env:
+          TEST_DATABASE_URL: postgresql://atelier:ci-isolated-test@127.0.0.1:5487/atelier
+      - run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: diagnostico-playwright
+          path: |
+            playwright-report/
+            test-results/

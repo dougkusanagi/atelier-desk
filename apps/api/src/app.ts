@@ -25,7 +25,27 @@ export async function createApp(
   const settings = config(options.settings),
     db = options.database ?? (await createDatabase(settings));
   const app = Fastify({
-    logger: options.logger ?? false,
+    logger: options.logger
+      ? {
+          redact: [
+            'req.headers.cookie',
+            'req.headers.authorization',
+            'req.headers.x-csrf-token',
+            'req.headers.x-share-password',
+          ],
+          serializers: {
+            req(request) {
+              return {
+                method: request.method,
+                url: request.url
+                  ?.split('?')[0]
+                  ?.replace(/(\/(?:shares|published|invitations)\/)[^/]+/, '$1[redacted]'),
+                remoteAddress: request.ip,
+              };
+            },
+          },
+        }
+      : false,
     bodyLimit: 3 * 1024 * 1024,
     requestIdHeader: 'x-request-id',
     loggerInstance: undefined,
@@ -95,7 +115,7 @@ export async function createApp(
   registerComments(app, db, settings);
   const storage = new Storage(settings);
   registerAssets(app, db, storage, settings);
-  const exportWorker = registerExports(app, db, documents, storage);
+  const exportWorker = registerExports(app, db, documents, storage, settings.workerEnabled);
   registerPreviews(app, db);
   app.addHook('onClose', async () => {
     clearInterval(refreshTimer);

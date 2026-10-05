@@ -4,8 +4,8 @@ try {
 } catch (error) {
   if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
 }
-const { app, settings } = await createApp({ logger: true });
-await app.listen({ port: settings.port, host: '0.0.0.0' });
+const { app } = await createApp({ logger: true, settings: { workerEnabled: true } });
+await app.ready();
 const shutdown = async () => {
   await app.close();
   process.exit(0);

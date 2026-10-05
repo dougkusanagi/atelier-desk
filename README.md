@@ -39,3 +39,13 @@ pnpm check
 ```
 
 O comando executa lint, TypeScript, testes de domínio/integração e build. As integrações criam bancos e contas temporárias, verificam autorização e geram arquivos PNG/PDF/Markdown/ZIP reais.
+
+## Operação e verificação
+
+O [guia de operação](docs/OPERACAO.md) descreve Docker/Podman, PostgreSQL externo, worker, SMTP, assets, TLS e recuperação. A pipeline em `.github/workflows/ci.yml` executa os checks, PostgreSQL e E2E sobre o build de produção. O service worker permite reabrir quadros previamente visitados sem conexão e preserva a fila de uploads no IndexedDB.
+
+```bash
+pnpm check
+pnpm test:e2e
+TEST_DATABASE_URL=postgresql://usuario:senha@localhost:5432/banco_de_teste pnpm test:postgres
+```

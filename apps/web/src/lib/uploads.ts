@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { type BoardDocument, type Point, type CardType } from '@atelier/domain';
-import { getCsrf } from './api';
+import { api, getCsrf, setCsrf } from './api';
 import { cache } from './cache';
 import { useCanvas } from '../features/canvas/state';
 type Upload = {
@@ -21,6 +21,15 @@ export function useUploads(board: BoardDocument | null, boardId: string, userId:
     );
   async function send(item: Upload) {
     if (!board || active.current.has(item.id) || !navigator.onLine) return;
+    if (!getCsrf()) {
+      try {
+        const session = await api<{ csrfToken: string }>('/auth/me');
+        setCsrf(session.csrfToken);
+      } catch {
+        patch(item.id, { status: 'queued' });
+        return;
+      }
+    }
     active.current.add(item.id);
     patch(item.id, { status: 'uploading' });
     const request = new XMLHttpRequest();

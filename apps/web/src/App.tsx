@@ -1,13 +1,18 @@
-import { useEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { Check, Loader2, X } from 'lucide-react';
 import { useAuth } from './lib/auth';
 import { Shell } from './components/Shell';
 import { AuthPage } from './pages/AuthPage';
 import { Dashboard } from './pages/Dashboard';
-import { BoardPage } from './pages/BoardPage';
+const BoardPage = lazy(() => import('./pages/BoardPage').then((m) => ({ default: m.BoardPage })));
 import { SearchPage, TrashPage, NotificationsPage, HelpPage } from './pages/UtilityPages';
-import { PublicPage, InvitationPage } from './pages/PublicPage';
+const PublicPage = lazy(() =>
+  import('./pages/PublicPage').then((m) => ({ default: m.PublicPage })),
+);
+const InvitationPage = lazy(() =>
+  import('./pages/PublicPage').then((m) => ({ default: m.InvitationPage })),
+);
 import { useCanvas } from './features/canvas/state';
 function Protected() {
   const { user, loading } = useAuth();
@@ -55,36 +60,45 @@ export default function App() {
   }, [navigate]);
   return (
     <>
-      <Routes>
-        <Route path="/entrar" element={<AuthPage mode="login" />} />
-        <Route path="/cadastro" element={<AuthPage mode="register" />} />
-        <Route path="/recuperar" element={<AuthPage mode="forgot" />} />
-        <Route path="/redefinir" element={<AuthPage mode="reset" />} />
-        <Route path="/verificar" element={<AuthPage mode="verify" />} />
-        <Route path="/compartilhar/:token" element={<PublicPage />} />
-        <Route path="/publico/:token" element={<PublicPage published />} />
-        <Route path="/convite/:token" element={<InvitationPage />} />
-        <Route element={<Protected />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/quadro/:id" element={<BoardPage />} />
-          <Route path="/nao-organizados" element={<BoardPage unsorted />} />
-          <Route path="/buscar" element={<SearchPage />} />
-          <Route path="/lixeira" element={<TrashPage />} />
-          <Route path="/notificacoes" element={<NotificationsPage />} />
-          <Route path="/ajuda" element={<HelpPage />} />
-        </Route>
-        <Route
-          path="*"
-          element={
-            <div className="full-state">
-              <h1>Este caminho não existe.</h1>
-              <button className="primary-button" onClick={() => navigate('/')}>
-                Voltar aos quadros
-              </button>
-            </div>
-          }
-        />
-      </Routes>
+      <Suspense
+        fallback={
+          <div className="full-state">
+            <Loader2 className="spinner" size={24} />
+            <p>Abrindo seu espaço…</p>
+          </div>
+        }
+      >
+        <Routes>
+          <Route path="/entrar" element={<AuthPage mode="login" />} />
+          <Route path="/cadastro" element={<AuthPage mode="register" />} />
+          <Route path="/recuperar" element={<AuthPage mode="forgot" />} />
+          <Route path="/redefinir" element={<AuthPage mode="reset" />} />
+          <Route path="/verificar" element={<AuthPage mode="verify" />} />
+          <Route path="/compartilhar/:token" element={<PublicPage />} />
+          <Route path="/publico/:token" element={<PublicPage published />} />
+          <Route path="/convite/:token" element={<InvitationPage />} />
+          <Route element={<Protected />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/quadro/:id" element={<BoardPage />} />
+            <Route path="/nao-organizados" element={<BoardPage unsorted />} />
+            <Route path="/buscar" element={<SearchPage />} />
+            <Route path="/lixeira" element={<TrashPage />} />
+            <Route path="/notificacoes" element={<NotificationsPage />} />
+            <Route path="/ajuda" element={<HelpPage />} />
+          </Route>
+          <Route
+            path="*"
+            element={
+              <div className="full-state">
+                <h1>Este caminho não existe.</h1>
+                <button className="primary-button" onClick={() => navigate('/')}>
+                  Voltar aos quadros
+                </button>
+              </div>
+            }
+          />
+        </Routes>
+      </Suspense>
       {toast && (
         <div
           className="toast"

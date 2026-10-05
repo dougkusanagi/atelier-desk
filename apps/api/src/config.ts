@@ -6,8 +6,11 @@ export function config(overrides: Partial<Config> = {}): Config {
     (!process.env.DATABASE_URL || !process.env.COOKIE_SECRET || !process.env.APP_ORIGIN)
   )
     throw new Error('Produção exige DATABASE_URL, COOKIE_SECRET e APP_ORIGIN.');
+  if (production && (process.env.COOKIE_SECRET?.length ?? 0) < 32)
+    throw new Error('COOKIE_SECRET deve ter pelo menos 32 caracteres.');
   return {
     production,
+    workerEnabled: process.env.WORKER_ENABLED !== 'false',
     port: Number(process.env.PORT ?? 3001),
     origin: process.env.APP_ORIGIN ?? 'http://localhost:5174',
     dataDir: path.resolve(process.env.DATA_DIR ?? '../../.data'),
@@ -30,6 +33,7 @@ export function config(overrides: Partial<Config> = {}): Config {
 }
 export type Config = {
   production: boolean;
+  workerEnabled: boolean;
   port: number;
   origin: string;
   dataDir: string;

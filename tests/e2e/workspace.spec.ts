@@ -2,6 +2,8 @@ import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
+import * as Y from 'yjs';
+import { BoardDocument, createCard } from '../../packages/domain/src/index';
 const password = 'SenhaDeTeste2026!';
 async function register(page: Page) {
   const email = `studio-${crypto.randomUUID()}@example.test`;
@@ -140,4 +142,101 @@ test('confirma e-mail pelo provedor local', async ({ page }) => {
   await page.goto(verification);
   await page.locator('form button.primary-button').click();
   await expect(page.getByText('E-mail confirmado.', { exact: true })).toBeVisible();
+});
+
+test('abre offline após recarregar o aplicativo de produção e recupera upload pendente', async ({
+  page,
+}) => {
+  await register(page);
+  await page.evaluate(() =>
+    navigator.serviceWorker.ready.then(
+      () =>
+        new Promise<void>((resolve) => {
+          if (navigator.serviceWorker.controller) resolve();
+          else
+            navigator.serviceWorker.addEventListener('controllerchange', () => resolve(), {
+              once: true,
+            });
+        }),
+    ),
+  );
+  await page.context().setOffline(true);
+  const picker = page.getByLabel('Adicionar arquivos', { exact: true });
+  await picker.setInputFiles({
+    name: 'referencia.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('Uma referência salva offline.'),
+  });
+  await expect(page.locator('.upload-queue')).toContainText('referencia.txt');
+  await expect(page.locator('.save-state')).toContainText('salvo neste dispositivo');
+  await page.reload();
+  await expect(page.locator('.upload-queue')).toContainText('referencia.txt');
+  await expect(page.locator('.save-state')).toContainText('salvo neste dispositivo');
+  await page.context().setOffline(false);
+  await expect(page.locator('.upload-queue')).toHaveCount(0);
+  await expect(page.locator('.save-state')).toHaveText('Salvo');
+  await expect(page.locator('.file-card')).toContainText('referencia.txt');
+});
+
+test('mantém culling e mede frames durante navegação com mil cartões', async ({ page }, info) => {
+  await register(page);
+  const boardId = page.url().split('/').at(-1),
+    session = await page.request.get('/api/v1/auth/me').then((r) => r.json());
+  const document = new BoardDocument();
+  document.insert(
+    Array.from({ length: 1000 }, (_, i) =>
+      createCard(i % 5 === 0 ? 'color' : 'note', {
+        x: (i % 25) * 320,
+        y: Math.floor(i / 25) * 250,
+      }),
+    ),
+  );
+  const result = await page.request.post(`/api/v1/boards/${boardId}/commands`, {
+    headers: { 'X-CSRF-Token': session.csrfToken },
+    data: {
+      update: Buffer.from(Y.encodeStateAsUpdate(document.doc)).toString('base64'),
+      epoch: 1,
+      updateId: crypto.randomUUID(),
+    },
+  });
+  expect(result.ok()).toBe(true);
+  document.destroy();
+  await page.reload();
+  await expect(page.locator('.save-state')).toHaveText('Salvo');
+  await expect(page.locator('[data-card-id]').first()).toBeVisible();
+  const rendered = await page.locator('[data-card-id]').count();
+  expect(rendered).toBeLessThan(100);
+  const frames = await page.evaluate(async () => {
+    await document.fonts.ready;
+    const canvas = document.querySelector('.canvas')!,
+      samples: number[] = [];
+    let previous = performance.now();
+    for (let i = 0; i < 120; i++) {
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame((now) => {
+          if (i > 10) samples.push(now - previous);
+          previous = now;
+          canvas.dispatchEvent(
+            new WheelEvent('wheel', { deltaX: 8, deltaY: 3, bubbles: true, cancelable: true }),
+          );
+          resolve();
+        }),
+      );
+    }
+    return samples.sort((a, b) => a - b);
+  });
+  const report = {
+    cards: 1007,
+    rendered,
+    viewport: page.viewportSize(),
+    browser: 'Chromium headless',
+    p50Ms: frames[Math.floor(frames.length * 0.5)],
+    p95Ms: frames[Math.floor(frames.length * 0.95)],
+  };
+  await info.attach('desempenho-1000-cartoes', {
+    body: JSON.stringify(report, null, 2),
+    contentType: 'application/json',
+  });
+  console.log('Medição de navegação:', JSON.stringify(report));
+  expect(report.p95Ms).toBeLessThan(34);
 });

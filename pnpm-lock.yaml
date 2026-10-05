@@ -50,6 +50,9 @@ importers:
       vitest:
         specifier: 5.0.3
         version: 5.0.3(@types/node@26.6.4)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.27.7)(tsx@4.23.15)(yaml@2.9.1))
+      yjs:
+        specifier: 13.6.33
+        version: 13.6.33
 
   apps/api:
     dependencies:

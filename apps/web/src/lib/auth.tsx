@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, RequestError, setCsrf, type User } from './api';
 type Auth = {
@@ -32,6 +32,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     retryDelay: 700,
     staleTime: 60_000,
   });
+  useEffect(() => {
+    const online = () => void query.refetch();
+    window.addEventListener('online', online);
+    return () => window.removeEventListener('online', online);
+  }, [query.refetch]);
   const value: Auth = {
     user: query.data ?? null,
     loading: query.isPending,

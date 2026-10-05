@@ -179,7 +179,9 @@ export class ExportWorker {
     readonly storage: Storage,
   ) {}
   async start() {
-    await this.db.query("UPDATE jobs SET status='queued' WHERE status='processing'");
+    await this.db.query(
+      "UPDATE jobs SET status='queued' WHERE status='processing' AND updated_at<now()-interval '10 minutes'",
+    );
     this.timer = setInterval(() => void this.tick(), 1000);
     void this.tick();
   }
@@ -187,6 +189,9 @@ export class ExportWorker {
     if (this.busy) return;
     this.busy = true;
     try {
+      await this.db.query(
+        "UPDATE jobs SET status='queued' WHERE status='processing' AND updated_at<now()-interval '10 minutes'",
+      );
       const job = await this.db.transaction(async (tx) => {
         const result = await tx.query<{
           id: string;
@@ -259,7 +264,9 @@ export class ExportWorker {
             const page = await context.newPage();
             await page.setContent(rendered.html, { waitUntil: 'load' });
             await page.evaluate(() => document.fonts.ready);
-            await this.db.query('UPDATE jobs SET progress=65 WHERE id=$1', [job.id]);
+            await this.db.query('UPDATE jobs SET progress=65,updated_at=now() WHERE id=$1', [
+              job.id,
+            ]);
             if (payload.format === 'png') {
               if (
                 rendered.width * payload.scale > 16384 ||
@@ -324,9 +331,10 @@ export function registerExports(
   db: Database,
   documents: Documents,
   storage: Storage,
+  enabled = true,
 ) {
   const worker = new ExportWorker(db, documents, storage);
-  app.addHook('onReady', () => worker.start());
+  if (enabled) app.addHook('onReady', () => worker.start());
   app.post('/api/v1/boards/:id/exports', async (request, reply) => {
     const user = await currentUser(db, request);
     verifyCsrf(user, request);
@@ -377,7 +385,7 @@ export function registerExports(
         }),
       ],
     );
-    void worker.tick();
+    if (enabled) void worker.tick();
     return reply.code(202).send({ id: jobId });
   });
   app.get('/api/v1/jobs/:id', async (request) => {

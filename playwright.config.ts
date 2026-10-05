@@ -21,7 +21,7 @@ export default defineConfig({
       env: { PORT: '3187', APP_ORIGIN: 'http://127.0.0.1:5187', DATA_DIR: '../../.data/e2e' },
     },
     {
-      command: 'pnpm --filter @atelier/web dev',
+      command: 'pnpm --filter @atelier/web build && pnpm --filter @atelier/web exec vite preview',
       url: 'http://127.0.0.1:5187',
       reuseExistingServer: false,
       timeout: 60_000,

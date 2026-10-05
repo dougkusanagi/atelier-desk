@@ -39,7 +39,7 @@ export function registerAuth(
   };
   app.post(
     '/api/v1/auth/register',
-    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    { config: { rateLimit: { max: settings.production ? 5 : 50, timeWindow: '1 minute' } } },
     async (request, reply) => {
       const input = z
         .object({

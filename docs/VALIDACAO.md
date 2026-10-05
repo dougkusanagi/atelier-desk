@@ -30,3 +30,13 @@
 - `pnpm test:e2e`: 5 cenários Chromium passaram: texto e posição após recarga, duas sessões com reconexão offline, senha de link público, visão móvel/reduced motion/axe na entrada e verificação de e-mail local.
 - Escritas de documentos agora bloqueiam a linha PostgreSQL e recompõem o snapshot dentro da transação; uma atualização de outra instância não é sobrescrita. Instâncias recebem mudanças pelo banco em até 500ms. O teste usa dois serviços Documents independentes sobre o adaptador local; a implantação com PostgreSQL externo ainda exige sua validação operacional.
 - Uploads pendentes são recuperados do IndexedDB ao reabrir o quadro. O estado “salvo neste dispositivo” aguarda persistência local.
+
+## Etapa 5 — build de produção e infraestrutura
+
+- O build divide editor (404,67KB), React (350,22KB), colaboração (110,22KB), Motion (128,44KB) e páginas. Não há chunk acima de 500KB. Os valores são antes de gzip e podem mudar em commits posteriores.
+- E2E sobre `vite preview`: reabertura completamente offline após recarga, recuperação de arquivo pendente e envio ao reconectar passaram. O teste encontrou e corrigiu um conflito `Vary: Origin` no cache do shell.
+- `pnpm test:postgres` passou contra PostgreSQL 17 executado em Podman rootless: duas APIs, sessão compartilhada e duas escritas concorrentes preservadas.
+- `podman build --target web --tag atelier-web:validation .` passou. API e worker têm entradas compiladas separadas.
+- Docker Compose, pipeline GitHub Actions e guia de backup/operação foram adicionados. Configuração real de SMTP, TLS, S3 e assinaturas ClamAV continua específica da implantação.
+- `pnpm test:e2e`: 7 cenários passaram sobre o build de produção. Fixture de 1.007 cartões renderizou 27 elementos; mediana 16,7ms e p95 16,7–16,8ms na navegação medida. Consulte `DESEMPENHO.md` para método e limites.
+- Imagens `web` e `api` construídas com Podman; API containerizada respondeu readiness sobre PostgreSQL externo e `nginx -t` passou. O smoke test local usa `NODE_ENV=development` por não ter TLS/SMTP real configurado.

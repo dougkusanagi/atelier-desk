@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, memo, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as Menu from '@radix-ui/react-dropdown-menu';
 import {
@@ -24,7 +24,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { CARD_COLORS, type BoardDocument, type Card, id } from '@atelier/domain';
-import { RichNote } from './RichNote';
+const RichNote = lazy(() => import('./RichNote').then((m) => ({ default: m.RichNote })));
 import { DrawingCard } from './DrawingCard';
 import { Dialog } from './Dialog';
 import { api } from '../lib/api';
@@ -214,7 +214,9 @@ export const CardView = memo(function CardView({
           {actions}
         </div>
         {title('Uma nova ideia')}
-        <RichNote card={card} board={board} readOnly={readOnly} />
+        <Suspense fallback={<p className="muted">Abrindo nota…</p>}>
+          <RichNote card={card} board={board} readOnly={readOnly} />
+        </Suspense>
       </div>
     );
   if (card.type === 'tasks')

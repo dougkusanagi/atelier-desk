@@ -8,8 +8,12 @@ import '@fontsource/inter/latin-600.css';
 import { AuthProvider } from './lib/auth';
 import App from './App';
 import './styles/global.css';
+import { registerOfflineShell } from './lib/offline';
+registerOfflineShell();
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, staleTime: 15000, refetchOnWindowFocus: false } },
+  defaultOptions: {
+    queries: { networkMode: 'always', retry: 1, staleTime: 15000, refetchOnWindowFocus: false },
+  },
 });
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={queryClient}>

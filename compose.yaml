@@ -1,0 +1,69 @@
+services:
+  postgres:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_DB: atelier
+      POSTGRES_USER: atelier
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Configure POSTGRES_PASSWORD}
+    volumes: [postgres:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U atelier -d atelier']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  clamav:
+    image: clamav/clamav:1.4
+    volumes: [clamav:/var/lib/clamav]
+  api:
+    build: { context: ., target: api }
+    environment: &api-env
+      NODE_ENV: production
+      PORT: 3001
+      APP_ORIGIN: ${APP_ORIGIN:?Configure APP_ORIGIN com HTTPS}
+      COOKIE_SECRET: ${COOKIE_SECRET:?Configure COOKIE_SECRET}
+      DATABASE_URL: postgresql://atelier:${POSTGRES_PASSWORD}@postgres:5432/atelier
+      DATA_DIR: /data
+      WORKER_ENABLED: 'false'
+      SMTP_HOST: ${SMTP_HOST:?Configure SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-Atelier Desk <atelier@example.com>}
+      CLAMAV_HOST: clamav
+    volumes: [assets:/data]
+    depends_on:
+      postgres: { condition: service_healthy }
+      clamav: { condition: service_started }
+    init: true
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3001/api/v1/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  worker:
+    build: { context: ., target: api }
+    environment: { <<: *api-env, WORKER_ENABLED: 'true' }
+    command: [node, dist/worker.js]
+    volumes: [assets:/data]
+    depends_on:
+      api: { condition: service_healthy }
+    init: true
+    shm_size: 1gb
+    restart: unless-stopped
+  web:
+    build: { context: ., target: web }
+    ports: ['127.0.0.1:8080:8080']
+    depends_on:
+      api: { condition: service_healthy }
+    restart: unless-stopped
+volumes:
+  postgres:
+  assets:
+  clamav:

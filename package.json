@@ -17,7 +17,8 @@
     "test:e2e": "playwright test",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "test:postgres": "pnpm --filter @atelier/api exec tsx ../../tests/integration/postgres.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
@@ -33,6 +34,7 @@
     "tsx": "4.23.15",
     "typescript": "5.9.3",
     "typescript-eslint": "8.71.0",
-    "vitest": "5.0.3"
+    "vitest": "5.0.3",
+    "yjs": "13.6.33"
   }
 }
