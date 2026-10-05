@@ -12,4 +12,21 @@ Implementação original inspirada na experiência de organização espacial do 
 - [Matriz de funcionalidades](docs/feature-matrix.md)
 - [Decisões e premissas](docs/assumptions.md)
 
-Cada entrega testável terá validação registrada, commit e push para `main`. As instruções de execução serão publicadas junto da infraestrutura funcional.
+Cada entrega testável tem [validação registrada](docs/VALIDACAO.md), commit e push para `main`.
+
+## Executar a interface
+
+Requer Node.js 24 e pnpm.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm dev:web
+```
+
+Abra `http://localhost:5174`. Nesta primeira entrega, o quadro é uma demonstração local; persistência e colaboração remota serão adicionadas nos próximos marcos.
+
+## Verificar
+
+```sh
+pnpm check
+```

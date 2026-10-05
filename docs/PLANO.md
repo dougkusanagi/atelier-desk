@@ -7,7 +7,7 @@ Cada marco resulta em comportamento utilizável, testes pertinentes, atualizaç�
 | Marco | Entrega | Validação de saída | Estado |
 |---|---|---|---|
 | 0 | Repositório, prompt integral e plano | Conferir documentos e remoto | Concluído |
-| 1 | Monorepo, tokens e motor do canvas | Transformações, zoom, seleção, arraste, build | Pendente |
+| 1 | Monorepo, tokens e motor do canvas | Transformações, zoom, seleção, arraste, build | Canvas funcional publicado; benchmark pendente |
 | 2 | Cartões e edição | Edição, upload, clipboard, undo/redo | Pendente |
 | 3 | Colunas, conexões e quadros aninhados | Ordenação, geometria, navegação e duplicação | Pendente |
 | 4 | API, autenticação, banco, assets e offline | Persistência, autorização, reinício e reconexão | Pendente |

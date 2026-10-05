@@ -1,0 +1,7 @@
+node_modules
+dist
+pnpm-lock.yaml
+docs/PROMPT.md
+coverage
+test-results
+playwright-report
