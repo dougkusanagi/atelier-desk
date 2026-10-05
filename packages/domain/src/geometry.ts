@@ -30,6 +30,49 @@ export function bounds(rects: Rect[]): Rect | null {
     height: Math.max(...rects.map((r) => r.y + r.height)) - y,
   };
 }
+/** Conservative hull includes curve controls, arrowheads and connector labels. */
+export function boardBounds(
+  cards: Card[],
+  connectors: Connector[],
+  originals: Card[] = cards,
+): Rect | null {
+  const rects: Rect[] = [...cards];
+  for (const line of connectors.filter((line) => !line.deletedAt)) {
+    const a = endpointPoint(line.source, cards, originals),
+      b = endpointPoint(line.target, cards, originals);
+    const dx = Math.max(40, Math.abs(b.x - a.x) / 2);
+    const controls = line.controls ?? [
+      { x: dx, y: 0 },
+      { x: -dx, y: 0 },
+    ];
+    const points = [
+      a,
+      b,
+      ...(line.curved
+        ? [
+            { x: a.x + controls[0].x, y: a.y + controls[0].y },
+            { x: b.x + controls[1].x, y: b.y + controls[1].y },
+          ]
+        : []),
+    ];
+    const padding = Math.max(16, line.width * 7);
+    for (const point of points)
+      rects.push({
+        x: point.x - padding,
+        y: point.y - padding,
+        width: padding * 2,
+        height: padding * 2,
+      });
+    if (line.label)
+      rects.push({
+        x: (a.x + b.x) / 2 - line.label.length * 4,
+        y: (a.y + b.y) / 2 - 26,
+        width: line.label.length * 8,
+        height: 32,
+      });
+  }
+  return bounds(rects);
+}
 export function fitCamera(rects: Rect[], viewport: { width: number; height: number }): Camera {
   const box = bounds(rects);
   if (!box) return { x: 80, y: 80, zoom: 1 };

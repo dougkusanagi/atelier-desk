@@ -10,8 +10,7 @@ if (!databaseUrl)
   throw new Error('Defina TEST_DATABASE_URL para um banco PostgreSQL de teste isolado.');
 const directory = await mkdtemp(path.join(tmpdir(), 'atelier-postgres-'));
 const settings = { databaseUrl, dataDir: directory, workerEnabled: false };
-const a = await createApp({ settings }),
-  b = await createApp({ settings });
+const [a, b] = await Promise.all([createApp({ settings }), createApp({ settings })]);
 try {
   const registered = await a.app.inject({
     method: 'POST',

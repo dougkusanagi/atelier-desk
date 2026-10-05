@@ -5,6 +5,7 @@ import { ArrowLeft, Bell, Check, Search, Trash2, Undo2 } from 'lucide-react';
 import { api, type BoardMeta } from '../lib/api';
 import { useWorkspace } from '../components/Shell';
 import { useCanvas } from '../features/canvas/state';
+import { useAuth } from '../lib/auth';
 function Header({ title }: { title: string }) {
   return (
     <header className="board-header">
@@ -132,7 +133,7 @@ export function TrashPage() {
       <Header title="Lixeira" />
       <div className="utility-page">
         <h1>Espaço para recomeçar.</h1>
-        <p className="muted">Quadros excluídos permanecem recuperáveis por 30 dias.</p>
+        <p className="muted">Restaure um quadro para retomar suas ideias.</p>
         {query.isPending ? (
           <p>Carregando…</p>
         ) : query.data?.items.length ? (
@@ -173,6 +174,13 @@ export function TrashPage() {
   );
 }
 export function NotificationsPage() {
+  const { user, refresh } = useAuth();
+  const [savingPreference, setSavingPreference] = useState(false),
+    [preferenceError, setPreferenceError] = useState(''),
+    [emailMentions, setEmailMentions] = useState(user?.preferences?.emailMentions !== false);
+  useEffect(() => {
+    setEmailMentions(user?.preferences?.emailMentions !== false);
+  }, [user?.preferences?.emailMentions]);
   const query = useQuery({
     queryKey: ['notifications'],
     queryFn: () =>
@@ -203,6 +211,35 @@ export function NotificationsPage() {
             Marcar como lidas
           </button>
         </div>
+        <label className="notification-preference">
+          <input
+            type="checkbox"
+            checked={emailMentions}
+            disabled={savingPreference}
+            onChange={(event) => {
+              const previous = emailMentions;
+              setEmailMentions(event.target.checked);
+              setSavingPreference(true);
+              setPreferenceError('');
+              void api('/auth/preferences', {
+                method: 'PATCH',
+                body: JSON.stringify({ emailMentions: event.target.checked }),
+              })
+                .then(() => refresh())
+                .catch(() => {
+                  setEmailMentions(previous);
+                  setPreferenceError('Não foi possível salvar a preferência. Tente novamente.');
+                })
+                .finally(() => setSavingPreference(false));
+            }}
+          />
+          Receber menções por e-mail
+        </label>
+        {preferenceError && (
+          <p role="alert" className="form-error">
+            {preferenceError}
+          </p>
+        )}
         {query.isPending ? (
           <p>Carregando…</p>
         ) : query.data?.items.length ? (
@@ -236,7 +273,7 @@ export function HelpPage() {
   const shortcuts = [
     ['Desfazer', 'Ctrl/Cmd + Z'],
     ['Refazer', 'Ctrl/Cmd + Shift + Z'],
-    ['Copiar / colar', 'Ctrl/Cmd + C / V'],
+    ['Copiar / recortar / colar', 'Ctrl/Cmd + C / X / V'],
     ['Duplicar', 'Ctrl/Cmd + D'],
     ['Selecionar todos', 'Ctrl/Cmd + A'],
     ['Excluir seleção', 'Delete / Backspace'],

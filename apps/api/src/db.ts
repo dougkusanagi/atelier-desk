@@ -23,7 +23,23 @@ export async function createDatabase(settings: Config): Promise<Database> {
     (await readFile(new URL('./005-favorites.sql', import.meta.url), 'utf8'));
   if (settings.databaseUrl) {
     const pool = new pg.Pool({ connectionString: settings.databaseUrl, max: 10 });
-    await pool.query(migration);
+    const migrator = await pool.connect();
+    try {
+      try {
+        await migrator.query('BEGIN');
+        await migrator.query("SELECT pg_advisory_xact_lock(hashtext('atelier-schema-migrations'))");
+        await migrator.query(migration);
+        await migrator.query('COMMIT');
+      } catch (error) {
+        await migrator.query('ROLLBACK');
+        throw error;
+      } finally {
+        migrator.release();
+      }
+    } catch (error) {
+      await pool.end();
+      throw error;
+    }
     const wrap = (client: pg.Pool | pg.PoolClient): Database => ({
       async query<T>(sql: string, values: unknown[] = []) {
         const result = await client.query(sql, values);

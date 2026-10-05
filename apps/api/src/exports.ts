@@ -10,7 +10,8 @@ import { z } from 'zod';
 import {
   type BoardState,
   effectiveCards,
-  bounds,
+  boardBounds,
+  colorInk,
   connectorPath,
   endpointPoint,
   richHtml,
@@ -36,7 +37,12 @@ type ExportPayload = {
 };
 async function exportHtml(payload: ExportPayload, db: Database, storage: Storage) {
   const cards = effectiveCards(payload.state.cards),
-    box = bounds(cards) ?? { x: 0, y: 0, width: 600, height: 400 };
+    box = boardBounds(cards, payload.state.connectors, payload.state.cards) ?? {
+      x: 0,
+      y: 0,
+      width: 600,
+      height: 400,
+    };
   const layers = new Map(
     [...cards].sort((a, b) => a.z - b.z || a.id.localeCompare(b.id)).map((c, i) => [c.id, i + 1]),
   );
@@ -141,6 +147,7 @@ async function exportHtml(payload: ExportPayload, db: Database, storage: Storage
       (card.type === 'column' ? 0 : layers.get(card.id)) +
       ';background:' +
       escape(card.type === 'color' ? (c.hex ?? '#FFFFFF') : card.color) +
+      (card.type === 'color' ? ';color:' + colorInk(c.hex ?? '#FFFFFF') : '') +
       '">' +
       content +
       '</article>'
@@ -160,7 +167,8 @@ async function exportHtml(payload: ExportPayload, db: Database, storage: Storage
         line.width +
         '" ' +
         (line.dashed ? 'stroke-dasharray="8 6" ' : '') +
-        (line.arrows !== 'none' ? 'marker-end="url(#arrow)"' : '') +
+        (line.arrows !== 'none' ? 'marker-end="url(#arrow)" ' : '') +
+        (line.arrows === 'both' ? 'marker-start="url(#arrow)"' : '') +
         '/><text x="' +
         (a.x + b.x) / 2 +
         '" y="' +
@@ -186,7 +194,7 @@ async function exportHtml(payload: ExportPayload, db: Database, storage: Storage
     (32 - box.x) +
     'px;top:' +
     (32 - box.y) +
-    'px"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#747B86"/></marker></defs>' +
+    'px"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="context-stroke"/></marker></defs>' +
     lines +
     '</svg>' +
     (cards.length

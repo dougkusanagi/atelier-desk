@@ -14,6 +14,7 @@ import {
   ArrowDownToLine,
   ChevronDown,
   Copy,
+  Scissors,
   Maximize,
   Minus,
   Plus,
@@ -40,7 +41,9 @@ import {
   connectorPath,
   endpointPoint,
   worldToScreen,
-  id,
+  copySelection,
+  pasteSelection,
+  readSelection,
 } from '@atelier/domain';
 import { useCanvas } from './state';
 import type { Presence } from '../../lib/sync';
@@ -296,65 +299,71 @@ export function Canvas({
     setSelected([]);
     notify('Itens movidos para a lixeira. Desfazer');
   }, [board, selected, state.cards, cards, readOnly, setSelected, notify]);
+  const serializeSelection = useCallback(() => {
+    clipboard = copySelection(state, selected);
+    return JSON.stringify({ atelier: 1, ...clipboard });
+  }, [state, selected]);
   const copy = useCallback(() => {
-    clipboard = {
-      cards: cards.filter((c) => selected.includes(c.id)),
-      connectors: state.connectors.filter(
-        (c) =>
-          !c.deletedAt &&
-          'cardId' in c.source &&
-          'cardId' in c.target &&
-          selected.includes(c.source.cardId) &&
-          selected.includes(c.target.cardId),
-      ),
-    };
+    const text = serializeSelection();
     void navigator.clipboard
-      ?.writeText(JSON.stringify({ atelier: 1, ...clipboard }))
+      ?.writeText(text)
       .catch(() => notify('Copiado no Atelier. Use Colar no menu.'));
     notify('Seleção copiada');
-  }, [cards, selected, state.connectors, notify]);
-  const paste = useCallback(async () => {
+  }, [serializeSelection, notify]);
+  const cut = useCallback(() => {
     if (readOnly) return;
-    let data = clipboard;
+    copy();
+    board.remove(
+      clipboard?.cards.map((card) => card.id).concat(clipboard.connectors.map((line) => line.id)) ??
+        [],
+    );
+    setSelected([]);
+    notify('Seleção recortada. Desfazer');
+  }, [board, copy, readOnly, setSelected, notify]);
+  const insertText = useCallback(
+    (text: string) => {
+      if (readOnly || !text.trim()) return;
+      try {
+        const at =
+          useCanvas.getState().pointer ??
+          screenToWorld({ x: size.width / 2, y: size.height / 2 }, camera);
+        const data = readSelection(text);
+        if (data) {
+          const copies = pasteSelection(data, at);
+          board.insert(copies.cards, copies.connectors);
+          setSelected([
+            ...copies.cards.map((card) => card.id),
+            ...copies.connectors.map((line) => line.id),
+          ]);
+        } else {
+          if (text.length > 1_000_000)
+            throw new Error('O texto excede 1 MB. Cole um trecho menor.');
+          const link = /^https?:\/\/\S+$/i.test(text.trim());
+          const key = board.add(link ? 'link' : 'note', at);
+          board.patch(key, { content: link ? { url: text.trim(), title: text.trim() } : { text } });
+          setSelected([key]);
+        }
+      } catch (error) {
+        notify(error instanceof Error ? error.message : 'Não foi possível colar.');
+      }
+    },
+    [board, camera, size, readOnly, setSelected, notify],
+  );
+  const paste = useCallback(async () => {
+    let text: string;
     try {
-      const text = await navigator.clipboard.readText();
-      const parsed = JSON.parse(text) as {
-        atelier?: number;
-        cards?: Card[];
-        connectors?: Connector[];
-      };
-      if (parsed.atelier === 1 && Array.isArray(parsed.cards))
-        data = { cards: parsed.cards, connectors: parsed.connectors ?? [] };
+      text = await navigator.clipboard.readText();
     } catch {
-      /* Clipboard interno permanece disponível. */
+      text = clipboard ? JSON.stringify({ atelier: 1, ...clipboard }) : '';
     }
-    if (!data?.cards.length) return;
-    const map = new Map(data.cards.map((c) => [c.id, id()]));
-    const copies = data.cards.map((c) => ({
-      ...structuredClone(c),
-      id: map.get(c.id)!,
-      x: c.x + 24,
-      y: c.y + 24,
-      layout:
-        c.layout.kind === 'column' && map.has(c.layout.columnId)
-          ? { ...c.layout, columnId: map.get(c.layout.columnId)! }
-          : { kind: 'free' as const },
-    }));
-    const lines = data.connectors.map((c) => ({
-      ...structuredClone(c),
-      id: id(),
-      source: 'cardId' in c.source ? { ...c.source, cardId: map.get(c.source.cardId)! } : c.source,
-      target: 'cardId' in c.target ? { ...c.target, cardId: map.get(c.target.cardId)! } : c.target,
-    }));
-    board.insert(copies, lines);
-    setSelected(copies.map((c) => c.id));
-  }, [board, readOnly, setSelected]);
+    insertText(text);
+  }, [insertText]);
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
       const element = event.target as HTMLElement;
       if (
         event.isComposing ||
-        element.closest('input, textarea, [contenteditable="true"], [role="dialog"]')
+        element.closest('input, textarea, [contenteditable="true"], [role="dialog"], [role="menu"]')
       )
         return;
       if (event.code === 'Space') {
@@ -381,9 +390,6 @@ export function Canvas({
       } else if (mod && event.key.toLowerCase() === 'd' && !readOnly) {
         event.preventDefault();
         setSelected(board.duplicate(selected));
-      } else if (mod && event.key.toLowerCase() === 'c') {
-        event.preventDefault();
-        copy();
       } else if (event.key.toLowerCase() === 'l' && !mod && !readOnly) {
         event.preventDefault();
         setTool('connector');
@@ -398,9 +404,6 @@ export function Canvas({
               '"] [contenteditable=true]',
           )
           ?.focus();
-      } else if (mod && event.key.toLowerCase() === 'v') {
-        event.preventDefault();
-        void paste();
       } else if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault();
         remove();
@@ -464,8 +467,6 @@ export function Canvas({
     readOnly,
     size,
     cancel,
-    copy,
-    paste,
     remove,
     onCreate,
     setCamera,
@@ -858,14 +859,52 @@ export function Canvas({
       onPointerCancel={cancel}
       onDragOver={(e) => e.preventDefault()}
       onDrop={drop}
-      onPaste={(e) => {
-        if ((e.target as HTMLElement).closest('input,textarea,[contenteditable]') || readOnly)
+      onCopy={(event) => {
+        if (
+          (event.target as HTMLElement).closest(
+            'input,textarea,[contenteditable],[role="dialog"],[role="menu"]',
+          )
+        )
           return;
-        const files = [...e.clipboardData.files];
-        if (files.length) {
-          e.preventDefault();
-          onFiles?.(files, screenToWorld({ x: size.width / 2, y: size.height / 2 }, camera));
-        }
+        event.preventDefault();
+        event.clipboardData.setData('text/plain', serializeSelection());
+        notify('Seleção copiada');
+      }}
+      onCut={(event) => {
+        if (
+          readOnly ||
+          (event.target as HTMLElement).closest(
+            'input,textarea,[contenteditable],[role="dialog"],[role="menu"]',
+          )
+        )
+          return;
+        event.preventDefault();
+        event.clipboardData.setData('text/plain', serializeSelection());
+        board.remove(
+          clipboard?.cards
+            .map((card) => card.id)
+            .concat(clipboard.connectors.map((line) => line.id)) ?? [],
+        );
+        setSelected([]);
+        notify('Seleção recortada. Desfazer');
+      }}
+      onPaste={(event) => {
+        if (
+          (event.target as HTMLElement).closest(
+            'input,textarea,[contenteditable],[role="dialog"],[role="menu"]',
+          ) ||
+          readOnly
+        )
+          return;
+        event.preventDefault();
+        const files = [...event.clipboardData.files];
+        if (files.length)
+          onFiles?.(
+            files,
+            useCanvas.getState().pointer ??
+              screenToWorld({ x: size.width / 2, y: size.height / 2 }, camera),
+          );
+        else insertText(event.clipboardData.getData('text/plain'));
       }}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -1198,6 +1237,10 @@ export function Canvas({
             <Copy size={14} />
             Copiar
           </button>
+          <button onClick={cut}>
+            <Scissors size={14} />
+            Recortar
+          </button>
           <button onClick={() => setSelected(board.duplicate(selected))}>
             <Plus size={14} />
             Duplicar
@@ -1230,6 +1273,16 @@ export function Canvas({
           </button>
           {!readOnly && (
             <>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  cut();
+                  setContext(null);
+                }}
+              >
+                <Scissors size={15} />
+                Recortar
+              </button>
               <button
                 role="menuitem"
                 onClick={() => {

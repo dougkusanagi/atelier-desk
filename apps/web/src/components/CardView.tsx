@@ -27,7 +27,7 @@ import {
   X,
   Pencil,
 } from 'lucide-react';
-import { CARD_COLORS, type BoardDocument, type Card, id } from '@atelier/domain';
+import { CARD_COLORS, type BoardDocument, type Card, id, colorInk } from '@atelier/domain';
 const RichNote = lazy(() => import('./RichNote').then((m) => ({ default: m.RichNote })));
 import { DrawingCard } from './DrawingCard';
 import { Dialog } from './Dialog';
@@ -413,15 +413,8 @@ export const CardView = memo(function CardView({
       </div>
     );
   if (card.type === 'color') {
-    const rgb = (card.content.hex ?? '#D3BFA7')
-      .slice(1)
-      .match(/../g)
-      ?.map((v) => parseInt(v, 16) / 255) ?? [0.8, 0.7, 0.6];
-    const lum = rgb
-      .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
-      .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
     return (
-      <div className="swatch-content" style={{ color: lum > 0.179 ? '#191B1F' : '#FFFFFF' }}>
+      <div className="swatch-content" style={{ color: colorInk(card.content.hex ?? '#D3BFA7') }}>
         <div className="swatch-actions">
           {actions}
           {!readOnly && (

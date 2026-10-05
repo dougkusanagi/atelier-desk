@@ -13,6 +13,16 @@ export function registerAuth(
   settings: Config,
   documents: Documents,
 ) {
+  app.patch('/api/v1/auth/preferences', async (request) => {
+    const user = await currentUser(db, request);
+    verifyCsrf(user, request);
+    const input = z.object({ emailMentions: z.boolean() }).strict().parse(request.body);
+    await db.query('UPDATE users SET preferences=preferences || $2::jsonb WHERE id=$1', [
+      user.id,
+      JSON.stringify(input),
+    ]);
+    return { ok: true };
+  });
   const setSession = async (userId: string, reply: import('fastify').FastifyReply) => {
     const raw = token(),
       csrf = token();
@@ -134,6 +144,7 @@ export function registerAuth(
         password_hash: string;
         display_name: string;
         verified_at: string | null;
+        preferences: Record<string, unknown>;
       }>('SELECT * FROM users WHERE email=$1', [input.email]);
       const user = result.rows[0];
       if (!user || !(await verify(user.password_hash, input.password)))
@@ -145,6 +156,7 @@ export function registerAuth(
           email: input.email,
           displayName: user.display_name,
           verified: Boolean(user.verified_at),
+          preferences: user.preferences,
         },
         csrfToken,
       };

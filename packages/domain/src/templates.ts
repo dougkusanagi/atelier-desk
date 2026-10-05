@@ -88,7 +88,7 @@ export function templateState(templateId: string): BoardState {
       'O que queremos transmitir?',
       'Menos ruído. Mais presença.\nMateriais naturais, gestos espontâneos e uma perspectiva acolhedora.',
       0,
-      278,
+      350,
       '#FFF4CC',
     );
     [
@@ -96,7 +96,7 @@ export function templateState(templateId: string): BoardState {
       ['Sálvia', '#A8B6A0'],
       ['Terracota', '#B57155'],
     ].forEach(([title, hex], i) => {
-      const c = createCard('color', { x: 340 + i * 184, y: 294 });
+      const c = createCard('color', { x: 340 + i * 184, y: 480 });
       c.content = { title, hex };
       cards.push(c);
     });

@@ -7,3 +7,5 @@ export * from './export';
 export * from './arrangement';
 
 export * from './clone';
+export * from './clipboard';
+export * from './color';

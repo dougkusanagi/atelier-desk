@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Check, Copy, Download, Link2, Loader2, Send, Trash2 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useCanvas } from '../features/canvas/state';
+import { useAuth } from '../lib/auth';
 export function SharePanel({ boardId }: { boardId: string }) {
   const [role, setRole] = useState('viewer'),
     [url, setUrl] = useState(''),
@@ -261,9 +262,12 @@ export function CommentsPanel({
   cardId?: string;
   role: string;
 }) {
+  const { user } = useAuth();
   const [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
-    [mention, setMention] = useState('');
+    [mention, setMention] = useState(''),
+    [editing, setEditing] = useState<string | null>(null),
+    [replying, setReplying] = useState<string | null>(null);
   const query = useQuery({
     queryKey: ['comments', boardId],
     queryFn: () => api<{ items: Thread[] }>('/boards/' + boardId + '/comments'),
@@ -277,6 +281,22 @@ export function CommentsPanel({
         '/boards/' + boardId + '/members',
       ),
   });
+  async function change(url: string, method: string, payload?: unknown) {
+    setBusy(true);
+    setError('');
+    try {
+      await api(url, { method, ...(payload ? { body: JSON.stringify(payload) } : {}) });
+      await query.refetch();
+      setEditing(null);
+      setReplying(null);
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : 'Não foi possível salvar. Tente novamente.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget,
@@ -315,17 +335,65 @@ export function CommentsPanel({
               <div className="comment" key={comment.id}>
                 <strong>{comment.display_name}</strong>
                 <time>{new Date(comment.created_at).toLocaleString('pt-BR')}</time>
-                <p>{comment.body}</p>
+                {editing === comment.id ? (
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void change('/comments/' + comment.id, 'PATCH', {
+                        body: new FormData(event.currentTarget).get('body'),
+                      });
+                    }}
+                  >
+                    <label className="sr-only" htmlFor={'edit-' + comment.id}>
+                      Editar comentário
+                    </label>
+                    <textarea
+                      id={'edit-' + comment.id}
+                      name="body"
+                      defaultValue={comment.body}
+                      required
+                      maxLength={10000}
+                      autoFocus
+                    />
+                    <div className="thread-actions">
+                      <button disabled={busy}>Salvar comentário</button>
+                      <button type="button" onClick={() => setEditing(null)}>
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <p>{comment.body}</p>
+                )}
+                {role !== 'viewer' && user?.id === comment.author_id && editing !== comment.id && (
+                  <div className="thread-actions">
+                    <button
+                      disabled={busy}
+                      onClick={() => {
+                        setEditing(comment.id);
+                        setReplying(null);
+                      }}
+                    >
+                      Editar comentário
+                    </button>
+                    <button
+                      disabled={busy}
+                      onClick={() => void change('/comments/' + comment.id, 'DELETE')}
+                    >
+                      Excluir comentário
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
             {role !== 'viewer' && (
               <div className="thread-actions">
                 <button
+                  disabled={busy}
                   onClick={() =>
-                    void api('/boards/' + boardId + '/comments/' + thread.id, {
-                      method: 'PATCH',
-                      body: JSON.stringify({ resolved: !thread.resolved }),
-                    }).then(() => void query.refetch())
+                    void change('/boards/' + boardId + '/comments/' + thread.id, 'PATCH', {
+                      resolved: !thread.resolved,
+                    })
                   }
                 >
                   <Check size={13} />
@@ -333,17 +401,41 @@ export function CommentsPanel({
                 </button>
                 <button
                   onClick={() => {
-                    const body = window.prompt('Escreva sua resposta');
-                    if (body)
-                      void api('/boards/' + boardId + '/comments', {
-                        method: 'POST',
-                        body: JSON.stringify({ body, threadId: thread.id }),
-                      }).then(() => void query.refetch());
+                    setReplying(thread.id);
+                    setEditing(null);
                   }}
                 >
                   Responder
                 </button>
               </div>
+            )}
+            {role !== 'viewer' && replying === thread.id && (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void change('/boards/' + boardId + '/comments', 'POST', {
+                    body: new FormData(event.currentTarget).get('body'),
+                    threadId: thread.id,
+                  });
+                }}
+              >
+                <label className="sr-only" htmlFor={'reply-' + thread.id}>
+                  Sua resposta
+                </label>
+                <textarea
+                  id={'reply-' + thread.id}
+                  name="body"
+                  required
+                  maxLength={10000}
+                  autoFocus
+                />
+                <div className="thread-actions">
+                  <button disabled={busy}>Enviar resposta</button>
+                  <button type="button" onClick={() => setReplying(null)}>
+                    Cancelar
+                  </button>
+                </div>
+              </form>
             )}
           </article>
         ))

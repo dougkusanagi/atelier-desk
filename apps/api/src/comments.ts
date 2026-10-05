@@ -19,7 +19,7 @@ export function registerComments(app: FastifyInstance, db: Database, settings: C
         'SELECT c.id,c.author_id,c.body,c.mentions,c.created_at,c.edited_at,u.display_name FROM comments c JOIN users u ON u.id=c.author_id WHERE c.thread_id=$1 AND c.deleted_at IS NULL ORDER BY c.created_at',
         [thread.id],
       );
-      items.push({ ...thread, comments: comments.rows });
+      if (comments.rows.length) items.push({ ...thread, comments: comments.rows });
     }
     return { items };
   });
@@ -131,12 +131,13 @@ export function registerComments(app: FastifyInstance, db: Database, settings: C
     verifyCsrf(user, request);
     const { id } = z.object({ id: uuid }).parse(request.params);
     const result = await db.query<{ author_id: string; board_id: string }>(
-      'SELECT c.author_id,t.board_id FROM comments c JOIN comment_threads t ON t.id=c.thread_id WHERE c.id=$1',
+      'SELECT c.author_id,t.board_id FROM comments c JOIN comment_threads t ON t.id=c.thread_id WHERE c.id=$1 AND c.deleted_at IS NULL',
       [id],
     );
     if (!result.rows[0] || result.rows[0].author_id !== user.id)
       throw new ApiError(404, 'NOT_FOUND', 'Comentário não encontrado.');
-    await boardRole(db, result.rows[0].board_id, user.id);
+    const access = await boardRole(db, result.rows[0].board_id, user.id);
+    requireRole(access.role, 'commenter');
     return id;
   };
   app.patch('/api/v1/comments/:id', async (request) => {

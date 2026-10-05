@@ -333,6 +333,50 @@ describe('compartilhamento, arquivos, comentários e exportações', () => {
     expect(result.statusCode).toBe(400);
     expect(result.json().code).toBe('MENTION_FORBIDDEN');
   });
+  it('bloqueia edição e exclusão do próprio comentário após redução para leitura', async () => {
+    await instance.db.query(
+      "INSERT INTO board_members(board_id,user_id,role) VALUES($1,$2,'commenter') ON CONFLICT(board_id,user_id) DO UPDATE SET role='commenter'",
+      [owner.boardId, reader.id],
+    );
+    const comment = await instance.app.inject({
+      method: 'POST',
+      url: '/api/v1/boards/' + owner.boardId + '/comments',
+      headers: headers(reader),
+      payload: { body: 'Comentário anterior à redução de acesso' },
+    });
+    expect(comment.statusCode).toBe(200);
+    await instance.db.query(
+      "UPDATE board_members SET role='viewer' WHERE board_id=$1 AND user_id=$2",
+      [owner.boardId, reader.id],
+    );
+    for (const method of ['PATCH', 'DELETE'] as const) {
+      const result = await instance.app.inject({
+        method,
+        url: '/api/v1/comments/' + comment.json().id,
+        headers: headers(reader),
+        ...(method === 'PATCH' ? { payload: { body: 'Tentativa bloqueada' } } : {}),
+      });
+      expect(result.statusCode).toBe(403);
+    }
+  });
+  it('persiste a preferência de e-mail sem permitir campos adicionais', async () => {
+    const saved = await instance.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/auth/preferences',
+      headers: headers(owner),
+      payload: { emailMentions: false },
+    });
+    expect(saved.statusCode).toBe(200);
+    const me = await instance.app.inject({ url: '/api/v1/auth/me', headers: headers(owner) });
+    expect(me.json().user.preferences.emailMentions).toBe(false);
+    const invalid = await instance.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/auth/preferences',
+      headers: headers(owner),
+      payload: { emailMentions: true, role: 'admin' },
+    });
+    expect(invalid.statusCode).toBe(400);
+  });
   it('revoga link e acesso concedido por ele', async () => {
     const result = await instance.app.inject({
       method: 'DELETE',

@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir, readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import * as Y from 'yjs';
 import { BoardDocument, createCard } from '../../packages/domain/src/index';
@@ -387,4 +387,94 @@ test('recorta uma imagem e mantém prazo e responsável após recarga', async ({
     .find((task) => task.dueDate === '2026-11-20');
   expect(saved?.assignee).toBe(session.user.id);
   document.destroy();
+});
+
+test('copia entre quadros, recorta com undo e cola texto externo', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await register(page);
+  await page.getByRole('button', { name: 'Nota', exact: true }).click();
+  const note = page.locator('.card-note').last();
+  await note.locator('[contenteditable]').fill('Ideia para organizar em outro quadro');
+  await note.click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('Control+c');
+  await page.getByRole('link', { name: 'Não organizados', exact: true }).click();
+  const canvas = page.locator('.canvas');
+  await canvas.click({ position: { x: 100, y: 280 } });
+  await page.keyboard.press('Control+v');
+  const copied = page
+    .locator('.card-note')
+    .filter({ hasText: 'Ideia para organizar em outro quadro' });
+  await expect(copied).toBeVisible();
+  await page.keyboard.press('Control+x');
+  await expect(copied).toHaveCount(0);
+  await page.keyboard.press('Control+z');
+  await expect(copied).toBeVisible();
+  await page.evaluate(() => navigator.clipboard.writeText('Texto capturado de outra aplicação'));
+  await page.keyboard.press('Control+v');
+  await expect(page.locator('.card-note')).toContainText(['Texto capturado de outra aplicação']);
+});
+
+test('edita e exclui seu comentário e salva preferência de menções', async ({ page }) => {
+  await register(page);
+  await page.getByRole('button', { name: 'Comentários', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Novo comentário' }).fill('Comentário para revisar');
+  await page.getByRole('button', { name: 'Comentar', exact: true }).click();
+  await expect(page.locator('.comment')).toContainText(['Comentário para revisar']);
+  await page.getByRole('button', { name: 'Editar comentário', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Editar comentário' }).fill('Comentário revisado');
+  await page.getByRole('button', { name: 'Salvar comentário', exact: true }).click();
+  await expect(page.locator('.comment')).toContainText(['Comentário revisado']);
+  await page.getByRole('button', { name: 'Excluir comentário', exact: true }).click();
+  await expect(page.locator('.comment')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Fechar', exact: true }).click();
+  await page.getByRole('link', { name: 'Notificações', exact: true }).click();
+  const preference = page.getByRole('checkbox', { name: 'Receber menções por e-mail' });
+  await preference.uncheck();
+  await expect(preference).toBeEnabled();
+  await expect(preference).not.toBeChecked();
+  await page.reload();
+  await expect(preference).not.toBeChecked();
+});
+
+test('audita o quadro em desktop e mobile nos dois temas', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await register(page);
+  await mkdir('.impeccable/review', { recursive: true });
+  const findings: unknown[] = [];
+  for (const device of ['desktop', 'mobile'] as const) {
+    if (device === 'mobile') {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.reload();
+      await expect(page.locator('.linear-board')).toBeVisible();
+    }
+    for (const theme of ['light', 'dark'] as const) {
+      await page.evaluate((value) => {
+        document.documentElement.dataset.theme = value;
+      }, theme);
+      await expect(page.locator('.save-state')).toHaveText('Salvo');
+      await page.evaluate(() => document.fonts.ready);
+      await page.screenshot({
+        path: `.impeccable/review/${device}${theme === 'dark' ? '-dark' : ''}.png`,
+        animations: 'disabled',
+      });
+      const scan = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+        .analyze();
+      findings.push(
+        ...scan.violations.map((violation) => ({
+          device,
+          theme,
+          id: violation.id,
+          nodes: violation.nodes.map((node) => ({
+            target: node.target,
+            summary: node.failureSummary,
+          })),
+        })),
+      );
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+        true,
+      );
+    }
+  }
+  expect(findings).toEqual([]);
 });

@@ -98,3 +98,15 @@
 - API rejeita recortes fora da imagem, datas impossíveis, responsáveis sem acesso e links executáveis em rich text. Os testes cobrem essas recusas.
 - Menus e diálogos portados não iniciam arraste do canvas; controles de tarefa não se sobrepõem.
 - CI remoto `37341481735` passou integralmente para a etapa anterior, incluindo exportações avançadas.
+
+## Etapa 13 — clipboard, comentários e acessibilidade
+
+- `pnpm check`: 59 testes de domínio e integração passaram. `pnpm test:e2e`: 15 cenários passaram, incluindo clipboard nativo, comentários próprios, preferências e auditoria axe.
+- Copiar/recortar/colar entre quadros inclui filhos de colunas recolhidas, remapeia IDs de tarefas/desenhos/conexões e trata texto e arquivos do clipboard. Dados JSON adulterados são rejeitados antes de inserir. Tarefas coladas ficam sem responsável; a referência a subquadro mantém o vínculo existente.
+- Comentários próprios permitem editar/excluir; responder usa formulário. Redução de acesso para leitura bloqueia mudanças mesmo do próprio autor. Preferência de menções por e-mail persiste na conta.
+- Requisições sem corpo não enviam `Content-Type: application/json`, corrigindo exclusões e logout. Inicialização de duas APIs concorre com lock de migração PostgreSQL e preserva escritas.
+- Exportações consideram extremidades e controles de curvas além dos cartões, setas nas duas pontas e contraste das amostras.
+- Auditoria axe sem violações nos temas claro/escuro em 1280×800 e 390×844, com tags WCAG 2 A/AA, 2.1 AA e 2.2 AA. Capturas em `.impeccable/review`; o resultado automatizado não certifica todas as telas nem toda a WCAG.
+- Revisão visual independente pediu alvos táteis de 44px; a correção reorganiza tarefas mobile para preservar a largura do texto.
+- O navegador compartilhado ficou indisponível durante a revisão; as capturas finais foram feitas pela suíte E2E do projeto. Detector visual executado uma vez, sem achados.
+- CI `37343611235` passou integralmente no commit `60bdead`.
