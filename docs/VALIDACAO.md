@@ -110,3 +110,13 @@
 - Revisão visual independente pediu alvos táteis de 44px; a correção reorganiza tarefas mobile para preservar a largura do texto.
 - O navegador compartilhado ficou indisponível durante a revisão; as capturas finais foram feitas pela suíte E2E do projeto. Detector visual executado uma vez, sem achados.
 - CI `37343611235` passou integralmente no commit `60bdead`.
+
+## Etapa 14 — recuperação e limpeza ao sair
+
+- `pnpm check`: lint, TypeScript, 59 testes em 11 arquivos e builds passaram.
+- `pnpm test:e2e`: 16 cenários Chromium passaram sobre o build de produção. A navegação com 1.007 cartões manteve 27 elementos renderizados e p95 de 16,8ms neste ambiente.
+- Sair força a gravação das mudanças locais e espera o ACK pendente por até dois segundos. Com alterações ou uploads ainda não sincronizados, a conta permanece aberta e oferece uma cópia ZIP de recuperação.
+- O E2E baixa o ZIP, verifica seu conteúdo, reconecta, aguarda salvamento e sai. Depois confere remoção dos bancos Yjs, entradas do cache por usuário e identidade local.
+- A cópia inclui snapshots dos quadros, documentos causais e arquivos pendentes; não inclui assets remotos. A limpeza dos bancos pode exigir fechar outras abas do mesmo usuário.
+- `DESIGN.md` e `.impeccable/design.json` registram os tokens realmente implementados. A revisão independente das quatro capturas aprovou a correção de alvos táteis; seu escopo foi visual e não constitui validação integral do produto.
+- CI remoto [37346158968](https://github.com/dougkusanagi/atelier-desk/actions/runs/37346158968) passou integralmente para `1811c48`, incluindo PostgreSQL externo e os 15 E2E disponíveis naquele commit. A validação local acima inclui o 16º cenário.

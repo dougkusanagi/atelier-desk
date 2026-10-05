@@ -4,6 +4,7 @@ import { IndexeddbPersistence } from 'y-indexeddb';
 import { BoardDocument, type BoardState } from '@atelier/domain';
 import { api, decode, encode, RequestError, type BoardMeta, type User } from './api';
 import { cache } from './cache';
+import { registerRuntime } from './sessionLifecycle';
 export type Presence = {
   clientId: string;
   user: { id: string; name: string };
@@ -256,20 +257,36 @@ export function useBoardSync(boardId: string, user: User) {
     const ping = setInterval(() => {
       if (socket.current?.readyState === 1) socket.current.send(JSON.stringify({ type: 'ping' }));
     }, 20000);
-    return () => {
-      disposed = true;
-      clearTimeout(reconnectTimer);
-      clearTimeout(flushTimer);
-      clearInterval(ping);
-      window.removeEventListener('online', online);
-      window.removeEventListener('offline', offline);
-      doc.off('update', onUpdate);
-      socket.current?.close();
-      socket.current = null;
-      void flush().finally(() => {
-        void persistence.destroy();
+    let stopped: Promise<void> | undefined;
+    const stop = () =>
+      (stopped ??= (async () => {
+        disposed = true;
+        unregister();
+        clearTimeout(reconnectTimer);
+        clearTimeout(flushTimer);
+        clearInterval(ping);
+        window.removeEventListener('online', online);
+        window.removeEventListener('offline', offline);
+        doc.off('update', onUpdate);
+        if (socket.current) socket.current.onmessage = null;
+        socket.current?.close();
+        socket.current = null;
+        await flush();
+        await persistence.destroy();
         document.destroy();
-      });
+      })());
+    const unregister = registerRuntime(user.id, {
+      stop,
+      flush: async () => {
+        await flush();
+        const deadline = Date.now() + 2000;
+        while (navigator.onLine && (pending.size || localUpdates.length) && Date.now() < deadline)
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        await cache.put('outbox', key, [...pending.values()]);
+      },
+    });
+    return () => {
+      void stop();
     };
   }, [boardId, user.id]);
   const sendPresence = (point: { x: number; y: number }, selection: string[]) => {

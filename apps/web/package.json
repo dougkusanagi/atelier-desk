@@ -25,6 +25,7 @@
     "@tiptap/y-tiptap": "3.0.9",
     "dompurify": "3.4.16",
     "idb": "8.0.3",
+    "jszip": "3.10.1",
     "lib0": "0.2.119",
     "lucide-react": "1.52.0",
     "motion": "14.0.0",

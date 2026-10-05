@@ -30,7 +30,7 @@ Sem `DATABASE_URL`, o projeto usa PostgreSQL embarcado persistente em `.data/pos
 
 Para confirmar um e-mail em desenvolvimento, abra o link no arquivo da caixa de saída local. Não há credenciais demonstrativas fixas.
 
-O projeto já oferece cartões, rich text, tarefas, desenho, uploads, colunas, conexões, quadros aninhados, templates, busca, comentários, links compartilháveis e exportações reais. [A matriz](docs/feature-matrix.md) diferencia implementações verificadas das exigências de produção ainda em andamento.
+O projeto oferece cartões, rich text, tarefas com prazo/responsável, desenho, uploads, recorte de imagem, colunas, conexões, quadros aninhados, templates, busca, comentários, links compartilháveis e exportações reais. Histórico causal e cópia local protegem a recuperação do trabalho. [A matriz](docs/feature-matrix.md) registra as evidências e as pendências concretas da especificação avançada; esta versão não declara conformidade integral com o prompt.
 
 ## Verificar
 
@@ -38,7 +38,7 @@ O projeto já oferece cartões, rich text, tarefas, desenho, uploads, colunas, c
 pnpm check
 ```
 
-O comando executa lint, TypeScript, testes de domínio/integração e build. As integrações criam bancos e contas temporárias, verificam autorização e geram arquivos PNG/PDF/Markdown/ZIP reais.
+O comando executa lint, TypeScript, 59 testes de domínio/integração e build. As integrações criam bancos e contas temporárias, verificam autorização e geram arquivos PNG/PDF/Markdown/ZIP reais. A suíte de navegador tem 16 cenários, incluindo duas sessões, recarga offline, clipboard, comentários, recorte, tarefas, acessibilidade e limpeza ao sair. O [benchmark](docs/DESEMPENHO.md) registra 1.007 cartões com p95 de 16,8ms no cenário medido.
 
 ## Operação e verificação
 

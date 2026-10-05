@@ -1,0 +1,657 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-05T17:13:48.260206+00:00",
+  "title": "Design System: Atelier Desk",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Azul de seleção",
+        "tonalRamp": [
+          "oklch(0.150 0.18042 265.00)",
+          "oklch(0.264 0.18042 265.00)",
+          "oklch(0.379 0.18042 265.00)",
+          "oklch(0.493 0.18042 265.00)",
+          "oklch(0.607 0.18042 265.00)",
+          "oklch(0.721 0.18042 265.00)",
+          "oklch(0.836 0.18042 265.00)",
+          "oklch(0.950 0.18042 265.00)"
+        ]
+      },
+      "primary-soft": {
+        "role": "primary",
+        "displayName": "Azul de apoio",
+        "tonalRamp": [
+          "oklch(0.150 0.02117 268.43)",
+          "oklch(0.264 0.02117 268.43)",
+          "oklch(0.379 0.02117 268.43)",
+          "oklch(0.493 0.02117 268.43)",
+          "oklch(0.607 0.02117 268.43)",
+          "oklch(0.721 0.02117 268.43)",
+          "oklch(0.836 0.02117 268.43)",
+          "oklch(0.950 0.02117 268.43)"
+        ]
+      },
+      "danger": {
+        "role": "error",
+        "displayName": "Vermelho de erro",
+        "tonalRamp": [
+          "oklch(0.150 0.17935 21.80)",
+          "oklch(0.264 0.17935 21.80)",
+          "oklch(0.379 0.17935 21.80)",
+          "oklch(0.493 0.17935 21.80)",
+          "oklch(0.607 0.17935 21.80)",
+          "oklch(0.721 0.17935 21.80)",
+          "oklch(0.836 0.17935 21.80)",
+          "oklch(0.950 0.17935 21.80)"
+        ]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Mesa quente",
+        "tonalRamp": [
+          "oklch(0.150 0.00541 95.10)",
+          "oklch(0.264 0.00541 95.10)",
+          "oklch(0.379 0.00541 95.10)",
+          "oklch(0.493 0.00541 95.10)",
+          "oklch(0.607 0.00541 95.10)",
+          "oklch(0.721 0.00541 95.10)",
+          "oklch(0.836 0.00541 95.10)",
+          "oklch(0.950 0.00541 95.10)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Papel branco",
+        "tonalRamp": [
+          "oklch(0.150 0.00000 89.88)",
+          "oklch(0.264 0.00000 89.88)",
+          "oklch(0.379 0.00000 89.88)",
+          "oklch(0.493 0.00000 89.88)",
+          "oklch(0.607 0.00000 89.88)",
+          "oklch(0.721 0.00000 89.88)",
+          "oklch(0.836 0.00000 89.88)",
+          "oklch(0.950 0.00000 89.88)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Grafite de texto",
+        "tonalRamp": [
+          "oklch(0.150 0.01194 264.36)",
+          "oklch(0.264 0.01194 264.36)",
+          "oklch(0.379 0.01194 264.36)",
+          "oklch(0.493 0.01194 264.36)",
+          "oklch(0.607 0.01194 264.36)",
+          "oklch(0.721 0.01194 264.36)",
+          "oklch(0.836 0.01194 264.36)",
+          "oklch(0.950 0.01194 264.36)"
+        ]
+      },
+      "secondary": {
+        "role": "neutral",
+        "displayName": "Cinza secundário",
+        "tonalRamp": [
+          "oklch(0.150 0.01744 260.71)",
+          "oklch(0.264 0.01744 260.71)",
+          "oklch(0.379 0.01744 260.71)",
+          "oklch(0.493 0.01744 260.71)",
+          "oklch(0.607 0.01744 260.71)",
+          "oklch(0.721 0.01744 260.71)",
+          "oklch(0.836 0.01744 260.71)",
+          "oklch(0.950 0.01744 260.71)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Borda discreta",
+        "tonalRamp": [
+          "oklch(0.150 0.00927 258.34)",
+          "oklch(0.264 0.00927 258.34)",
+          "oklch(0.379 0.00927 258.34)",
+          "oklch(0.493 0.00927 258.34)",
+          "oklch(0.607 0.00927 258.34)",
+          "oklch(0.721 0.00927 258.34)",
+          "oklch(0.836 0.00927 258.34)",
+          "oklch(0.950 0.00927 258.34)"
+        ]
+      },
+      "card-ink": {
+        "role": "neutral",
+        "displayName": "Tinta de cartão",
+        "tonalRamp": [
+          "oklch(0.150 0.02100 140.00)",
+          "oklch(0.264 0.02100 140.00)",
+          "oklch(0.379 0.02100 140.00)",
+          "oklch(0.493 0.02100 140.00)",
+          "oklch(0.607 0.02100 140.00)",
+          "oklch(0.721 0.02100 140.00)",
+          "oklch(0.836 0.02100 140.00)",
+          "oklch(0.950 0.02100 140.00)"
+        ]
+      },
+      "card-title-ink": {
+        "role": "neutral",
+        "displayName": "Título de cartão",
+        "tonalRamp": [
+          "oklch(0.150 0.01683 141.69)",
+          "oklch(0.264 0.01683 141.69)",
+          "oklch(0.379 0.01683 141.69)",
+          "oklch(0.493 0.01683 141.69)",
+          "oklch(0.607 0.01683 141.69)",
+          "oklch(0.721 0.01683 141.69)",
+          "oklch(0.836 0.01683 141.69)",
+          "oklch(0.950 0.01683 141.69)"
+        ]
+      },
+      "column": {
+        "role": "neutral",
+        "displayName": "Coluna suave",
+        "tonalRamp": [
+          "oklch(0.150 0.00824 121.63)",
+          "oklch(0.264 0.00824 121.63)",
+          "oklch(0.379 0.00824 121.63)",
+          "oklch(0.493 0.00824 121.63)",
+          "oklch(0.607 0.00824 121.63)",
+          "oklch(0.721 0.00824 121.63)",
+          "oklch(0.836 0.00824 121.63)",
+          "oklch(0.950 0.00824 121.63)"
+        ]
+      },
+      "column-border": {
+        "role": "neutral",
+        "displayName": "Borda de coluna",
+        "tonalRamp": [
+          "oklch(0.150 0.01862 127.16)",
+          "oklch(0.264 0.01862 127.16)",
+          "oklch(0.379 0.01862 127.16)",
+          "oklch(0.493 0.01862 127.16)",
+          "oklch(0.607 0.01862 127.16)",
+          "oklch(0.721 0.01862 127.16)",
+          "oklch(0.836 0.01862 127.16)",
+          "oklch(0.950 0.01862 127.16)"
+        ]
+      },
+      "card-yellow": {
+        "role": "secondary",
+        "displayName": "Papel amarelo",
+        "tonalRamp": [
+          "oklch(0.150 0.05310 94.43)",
+          "oklch(0.264 0.05310 94.43)",
+          "oklch(0.379 0.05310 94.43)",
+          "oklch(0.493 0.05310 94.43)",
+          "oklch(0.607 0.05310 94.43)",
+          "oklch(0.721 0.05310 94.43)",
+          "oklch(0.836 0.05310 94.43)",
+          "oklch(0.950 0.05310 94.43)"
+        ]
+      },
+      "card-peach": {
+        "role": "secondary",
+        "displayName": "Papel pêssego",
+        "tonalRamp": [
+          "oklch(0.150 0.04082 60.15)",
+          "oklch(0.264 0.04082 60.15)",
+          "oklch(0.379 0.04082 60.15)",
+          "oklch(0.493 0.04082 60.15)",
+          "oklch(0.607 0.04082 60.15)",
+          "oklch(0.721 0.04082 60.15)",
+          "oklch(0.836 0.04082 60.15)",
+          "oklch(0.950 0.04082 60.15)"
+        ]
+      },
+      "card-pink": {
+        "role": "secondary",
+        "displayName": "Papel rosa",
+        "tonalRamp": [
+          "oklch(0.150 0.03040 5.04)",
+          "oklch(0.264 0.03040 5.04)",
+          "oklch(0.379 0.03040 5.04)",
+          "oklch(0.493 0.03040 5.04)",
+          "oklch(0.607 0.03040 5.04)",
+          "oklch(0.721 0.03040 5.04)",
+          "oklch(0.836 0.03040 5.04)",
+          "oklch(0.950 0.03040 5.04)"
+        ]
+      },
+      "card-lilac": {
+        "role": "secondary",
+        "displayName": "Papel lilás",
+        "tonalRamp": [
+          "oklch(0.150 0.03223 303.47)",
+          "oklch(0.264 0.03223 303.47)",
+          "oklch(0.379 0.03223 303.47)",
+          "oklch(0.493 0.03223 303.47)",
+          "oklch(0.607 0.03223 303.47)",
+          "oklch(0.721 0.03223 303.47)",
+          "oklch(0.836 0.03223 303.47)",
+          "oklch(0.950 0.03223 303.47)"
+        ]
+      },
+      "card-blue": {
+        "role": "secondary",
+        "displayName": "Papel azul",
+        "tonalRamp": [
+          "oklch(0.150 0.02643 257.03)",
+          "oklch(0.264 0.02643 257.03)",
+          "oklch(0.379 0.02643 257.03)",
+          "oklch(0.493 0.02643 257.03)",
+          "oklch(0.607 0.02643 257.03)",
+          "oklch(0.721 0.02643 257.03)",
+          "oklch(0.836 0.02643 257.03)",
+          "oklch(0.950 0.02643 257.03)"
+        ]
+      },
+      "card-green": {
+        "role": "secondary",
+        "displayName": "Papel verde",
+        "tonalRamp": [
+          "oklch(0.150 0.02161 163.04)",
+          "oklch(0.264 0.02161 163.04)",
+          "oklch(0.379 0.02161 163.04)",
+          "oklch(0.493 0.02161 163.04)",
+          "oklch(0.607 0.02161 163.04)",
+          "oklch(0.721 0.02161 163.04)",
+          "oklch(0.836 0.02161 163.04)",
+          "oklch(0.950 0.02161 163.04)"
+        ]
+      },
+      "card-gray": {
+        "role": "secondary",
+        "displayName": "Papel cinza",
+        "tonalRamp": [
+          "oklch(0.150 0.00458 258.33)",
+          "oklch(0.264 0.00458 258.33)",
+          "oklch(0.379 0.00458 258.33)",
+          "oklch(0.493 0.00458 258.33)",
+          "oklch(0.607 0.00458 258.33)",
+          "oklch(0.721 0.00458 258.33)",
+          "oklch(0.836 0.00458 258.33)",
+          "oklch(0.950 0.00458 258.33)"
+        ]
+      },
+      "dark-primary": {
+        "role": "primary",
+        "displayName": "Azul luminoso",
+        "tonalRamp": [
+          "oklch(0.150 0.10282 270.53)",
+          "oklch(0.264 0.10282 270.53)",
+          "oklch(0.379 0.10282 270.53)",
+          "oklch(0.493 0.10282 270.53)",
+          "oklch(0.607 0.10282 270.53)",
+          "oklch(0.721 0.10282 270.53)",
+          "oklch(0.836 0.10282 270.53)",
+          "oklch(0.950 0.10282 270.53)"
+        ]
+      },
+      "dark-primary-soft": {
+        "role": "primary",
+        "displayName": "Apoio azul escuro",
+        "tonalRamp": [
+          "oklch(0.150 0.04784 266.38)",
+          "oklch(0.264 0.04784 266.38)",
+          "oklch(0.379 0.04784 266.38)",
+          "oklch(0.493 0.04784 266.38)",
+          "oklch(0.607 0.04784 266.38)",
+          "oklch(0.721 0.04784 266.38)",
+          "oklch(0.836 0.04784 266.38)",
+          "oklch(0.950 0.04784 266.38)"
+        ]
+      },
+      "dark-danger": {
+        "role": "error",
+        "displayName": "Erro no escuro",
+        "tonalRamp": [
+          "oklch(0.150 0.11866 12.93)",
+          "oklch(0.264 0.11866 12.93)",
+          "oklch(0.379 0.11866 12.93)",
+          "oklch(0.493 0.11866 12.93)",
+          "oklch(0.607 0.11866 12.93)",
+          "oklch(0.721 0.11866 12.93)",
+          "oklch(0.836 0.11866 12.93)",
+          "oklch(0.950 0.11866 12.93)"
+        ]
+      },
+      "dark-canvas": {
+        "role": "neutral",
+        "displayName": "Mesa de grafite",
+        "tonalRamp": [
+          "oklch(0.150 0.00837 264.39)",
+          "oklch(0.264 0.00837 264.39)",
+          "oklch(0.379 0.00837 264.39)",
+          "oklch(0.493 0.00837 264.39)",
+          "oklch(0.607 0.00837 264.39)",
+          "oklch(0.721 0.00837 264.39)",
+          "oklch(0.836 0.00837 264.39)",
+          "oklch(0.950 0.00837 264.39)"
+        ]
+      },
+      "dark-surface": {
+        "role": "neutral",
+        "displayName": "Painel escuro",
+        "tonalRamp": [
+          "oklch(0.150 0.01028 260.70)",
+          "oklch(0.264 0.01028 260.70)",
+          "oklch(0.379 0.01028 260.70)",
+          "oklch(0.493 0.01028 260.70)",
+          "oklch(0.607 0.01028 260.70)",
+          "oklch(0.721 0.01028 260.70)",
+          "oklch(0.836 0.01028 260.70)",
+          "oklch(0.950 0.01028 260.70)"
+        ]
+      },
+      "dark-raised": {
+        "role": "neutral",
+        "displayName": "Papel elevado escuro",
+        "tonalRamp": [
+          "oklch(0.150 0.01221 258.37)",
+          "oklch(0.264 0.01221 258.37)",
+          "oklch(0.379 0.01221 258.37)",
+          "oklch(0.493 0.01221 258.37)",
+          "oklch(0.607 0.01221 258.37)",
+          "oklch(0.721 0.01221 258.37)",
+          "oklch(0.836 0.01221 258.37)",
+          "oklch(0.950 0.01221 258.37)"
+        ]
+      },
+      "dark-text": {
+        "role": "neutral",
+        "displayName": "Texto no escuro",
+        "tonalRamp": [
+          "oklch(0.150 0.00343 247.86)",
+          "oklch(0.264 0.00343 247.86)",
+          "oklch(0.379 0.00343 247.86)",
+          "oklch(0.493 0.00343 247.86)",
+          "oklch(0.607 0.00343 247.86)",
+          "oklch(0.721 0.00343 247.86)",
+          "oklch(0.836 0.00343 247.86)",
+          "oklch(0.950 0.00343 247.86)"
+        ]
+      },
+      "dark-secondary": {
+        "role": "neutral",
+        "displayName": "Detalhe no escuro",
+        "tonalRamp": [
+          "oklch(0.150 0.01616 257.21)",
+          "oklch(0.264 0.01616 257.21)",
+          "oklch(0.379 0.01616 257.21)",
+          "oklch(0.493 0.01616 257.21)",
+          "oklch(0.607 0.01616 257.21)",
+          "oklch(0.721 0.01616 257.21)",
+          "oklch(0.836 0.01616 257.21)",
+          "oklch(0.950 0.01616 257.21)"
+        ]
+      },
+      "dark-border": {
+        "role": "neutral",
+        "displayName": "Borda no escuro",
+        "tonalRamp": [
+          "oklch(0.150 0.01698 258.37)",
+          "oklch(0.264 0.01698 258.37)",
+          "oklch(0.379 0.01698 258.37)",
+          "oklch(0.493 0.01698 258.37)",
+          "oklch(0.607 0.01698 258.37)",
+          "oklch(0.721 0.01698 258.37)",
+          "oklch(0.836 0.01698 258.37)",
+          "oklch(0.950 0.01698 258.37)"
+        ]
+      },
+      "dark-column": {
+        "role": "neutral",
+        "displayName": "Coluna no escuro",
+        "tonalRamp": [
+          "oklch(0.150 0.01764 266.32)",
+          "oklch(0.264 0.01764 266.32)",
+          "oklch(0.379 0.01764 266.32)",
+          "oklch(0.493 0.01764 266.32)",
+          "oklch(0.607 0.01764 266.32)",
+          "oklch(0.721 0.01764 266.32)",
+          "oklch(0.836 0.01764 266.32)",
+          "oklch(0.950 0.01764 266.32)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Chamada ilustrativa da entrada; fonte observada no código, fora do escopo das capturas do quadro."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Títulos de dashboard e páginas utilitárias."
+      },
+      "board-title": {
+        "displayName": "Board title",
+        "purpose": "Título editável do quadro, 21px em mobile."
+      },
+      "dialog-title": {
+        "displayName": "Dialog title",
+        "purpose": "Título de modal."
+      },
+      "card-title": {
+        "displayName": "Card title",
+        "purpose": "Título interno da nota ou lista."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Conteúdo rico do cartão."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Ações e navegação compacta."
+      },
+      "metadata": {
+        "displayName": "Metadata",
+        "purpose": "Detalhes compactos; não substitui corpo de leitura."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card-rest-light",
+        "value": "0 1px 2px rgba(24, 28, 36, 0.08), 0 3px 10px rgba(24, 28, 36, 0.04)",
+        "purpose": "Papel no claro; --shadow."
+      },
+      {
+        "name": "card-rest-dark",
+        "value": "0 1px 3px rgba(0, 0, 0, 0.3), 0 3px 10px rgba(0, 0, 0, 0.12)",
+        "purpose": "Papel no escuro; --shadow."
+      },
+      {
+        "name": "card-drag",
+        "value": "0 10px 28px rgba(24, 28, 36, 0.18), 0 2px 6px rgba(24, 28, 36, 0.1)",
+        "purpose": "Pickup durante manipulação."
+      },
+      {
+        "name": "overlay",
+        "value": "0 12px 36px rgba(24, 28, 36, 0.16)",
+        "purpose": "Menus, toast e diálogos."
+      },
+      {
+        "name": "zoom",
+        "value": "0 2px 8px rgba(35, 42, 30, 0.04)",
+        "purpose": "Controle de câmera."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Aparência e inserção de cartão; a posição do arrasto é direta."
+      },
+      {
+        "name": "pickup",
+        "value": "100ms; scale(1.025); rotate(0.6deg)",
+        "purpose": "Aparência de cartão no arrasto."
+      },
+      {
+        "name": "settle-and-entry",
+        "value": "spring; duration: 260ms; bounce: 0.12",
+        "purpose": "Soltura e entrada efetivas em Canvas.tsx; não registrar 180ms aspiracionais de criação."
+      },
+      {
+        "name": "column-insertion",
+        "value": "160ms",
+        "purpose": "y na inserção em coluna; posição ordinária usa duration 0."
+      },
+      {
+        "name": "camera-control",
+        "value": "180ms; 1 - (1 - t)^3",
+        "purpose": "Controles de câmera; reduced motion resolve imediatamente."
+      },
+      {
+        "name": "camera-inertia",
+        "value": "decay: exp(-elapsed / 180); maximum: 700ms",
+        "purpose": "Inércia interrompível, omitida em reduced motion."
+      },
+      {
+        "name": "board-navigation",
+        "value": "280ms; cubic-bezier(.4,0,.2,1)",
+        "purpose": "Expansão do cartão de quadro para o viewport; omitida em reduced motion."
+      },
+      {
+        "name": "overlay-entry",
+        "value": "120ms",
+        "purpose": "Fade do overlay."
+      },
+      {
+        "name": "dialog-entry",
+        "value": "160ms",
+        "purpose": "Fade do diálogo."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "duration: 0 in Motion; animation/transition-duration: 0.001ms in CSS",
+        "purpose": "Movimento reduzido confirmado por implementação e teste; capturas não provam os tempos."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "dashboard-compact",
+        "value": "1200px"
+      },
+      {
+        "name": "sidebar-narrow",
+        "value": "1100px"
+      },
+      {
+        "name": "sidebar-hidden",
+        "value": "900px"
+      },
+      {
+        "name": "mobile",
+        "value": "767px"
+      },
+      {
+        "name": "touch-targets",
+        "value": "(max-width: 767px), (pointer: coarse)"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Ação principal",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ação de confirmação; o texto acompanha o tema do host.",
+      "html": "<button class=\"ds-primary\">Criar quadro</button>",
+      "css": ".ds-primary{font-family:Inter, system-ui, sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:10px 16px;border:0;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;background:var(--accent,#315bcb);color:light-dark(#fff,#191b1f)}.ds-primary:hover{filter:brightness(.94)}.ds-primary:focus-visible{outline:2px solid var(--accent,#315bcb);outline-offset:2px;}.ds-primary:disabled{opacity:.5;cursor:not-allowed}@media(max-width:767px),(pointer:coarse){.ds-primary{min-width:44px;min-height:44px}}"
+    },
+    {
+      "name": "Ação secundária",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Ação auxiliar sobre superfície com borda.",
+      "html": "<button class=\"ds-secondary\">Cancelar</button>",
+      "css": ".ds-secondary{font-family:Inter, system-ui, sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:10px 16px;border:0;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--border,#d9dde3);background:var(--surface,#fff);color:var(--text,#24272d)}.ds-secondary:hover{background:var(--canvas,#f5f4f0)}.ds-secondary:focus-visible{outline:2px solid var(--accent,#315bcb);outline-offset:2px;}.ds-secondary:disabled{opacity:.5;cursor:not-allowed}@media(max-width:767px),(pointer:coarse){.ds-secondary{min-width:44px;min-height:44px}}"
+    },
+    {
+      "name": "Campo de formulário",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo rotulado de texto em formulário.",
+      "html": "<label class=\"ds-label\">Nome do quadro<input class=\"ds-input\" placeholder=\"Novo projeto\" /></label>",
+      "css": ".ds-label{font-family:Inter, system-ui, sans-serif;display:block;font-size:12px;font-weight:500;color:var(--text,#24272d)}.ds-input{font-family:Inter, system-ui, sans-serif;display:block;margin-top:7px;width:100%;border:1px solid var(--border,#d9dde3);padding:10px 12px;background:var(--surface,#fff);border-radius:6px;color:var(--text,#24272d);min-height:40px;font-size:14px;caret-color:var(--accent,#315bcb)}.ds-input::placeholder{color:var(--secondary,#626872)}.ds-input:focus-visible{outline:2px solid var(--accent,#315bcb);outline-offset:2px;}"
+    },
+    {
+      "name": "Navegação lateral",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Linha ativa da navegação principal.",
+      "html": "<nav aria-label=\"Navegação\"><a class=\"ds-nav\" href=\"#\" aria-current=\"page\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/></svg>Meus quadros</a></nav>",
+      "css": ".ds-nav{font-family:Inter, system-ui, sans-serif;display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;border-radius:6px;font-size:13px;font-weight:500;text-decoration:none;color:var(--text,#24272d);background:light-dark(#f1f2ee,var(--raised,#2b2f35))}.ds-nav:hover{background:#f5f5f2}.ds-nav:focus-visible{outline:2px solid var(--accent,#315bcb);outline-offset:2px;}"
+    },
+    {
+      "name": "Ferramenta de criação",
+      "kind": "button",
+      "refersTo": "creation-tool",
+      "description": "Ícone e legenda no trilho de criação.",
+      "html": "<button class=\"ds-tool\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/></svg><span>Quadro</span></button>",
+      "css": ".ds-tool{font-family:Inter, system-ui, sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;width:52px;min-height:43px;color:var(--secondary,#626872);background:transparent;border:0;border-radius:6px;cursor:pointer;transition:background 120ms}.ds-tool span{font-size:9px}.ds-tool:hover{background:light-dark(#f2f2ee,var(--raised,#2b2f35));color:var(--text,#24272d)}.ds-tool:focus-visible{outline:2px solid var(--accent,#315bcb);outline-offset:2px;}.ds-tool[aria-pressed=\"true\"]{color:var(--accent,#315bcb);background:var(--accent-soft,#eaf0ff)}@media(prefers-reduced-motion:reduce){.ds-tool{transition:none}}"
+    },
+    {
+      "name": "Nota de papel",
+      "kind": "card",
+      "refersTo": "note-card",
+      "description": "Nota editável com contorno selecionável e corpo rico.",
+      "html": "<article class=\"ds-note\" tabindex=\"0\"><strong class=\"ds-note-title\">Próximas ideias</strong><div class=\"ds-note-body\" contenteditable=\"true\" role=\"textbox\" aria-label=\"Conteúdo da nota\">Reunir referências e dar espaço para novas conexões.</div></article>",
+      "css": ".ds-note{font-family:Inter, system-ui, sans-serif;padding:17px 18px;border-radius:6px;background:var(--raised,#fff);color:light-dark(#4e574c,var(--text,#f1f3f5));box-shadow:var(--shadow,0 1px 2px rgba(24,28,36,.08),0 3px 10px rgba(24,28,36,.04));max-width:280px}.ds-note-title{color:light-dark(#30372f,var(--text,#f1f3f5));display:block;font-size:17px;font-weight:500;line-height:1.5;letter-spacing:-.35px;margin-bottom:10px}.ds-note-body{font-size:14px;line-height:1.7;min-height:85px}.ds-note:focus-visible,.ds-note-body:focus-visible{outline:2px solid var(--accent,#315bcb);outline-offset:2px;}.ds-note[data-selected=\"true\"]{outline:2px solid var(--accent,#315bcb);outline-offset:3px}"
+    },
+    {
+      "name": "Menu contextual",
+      "kind": "custom",
+      "refersTo": "menu",
+      "description": "Ações agrupadas sobre superfície elevada.",
+      "html": "<div class=\"ds-menu\" role=\"menu\" aria-label=\"Ações do cartão\"><button class=\"ds-menu-item\" role=\"menuitem\">Duplicar cartão</button><button class=\"ds-menu-item\" role=\"menuitem\">Trazer para frente</button></div>",
+      "css": ".ds-menu{font-family:Inter, system-ui, sans-serif;min-width:200px;padding:5px;background:var(--surface,#fff);color:var(--text,#24272d);border:1px solid var(--border,#d9dde3);border-radius:8px;box-shadow:0 12px 36px rgba(24,28,36,.16)}.ds-menu-item{font-family:Inter, system-ui, sans-serif;display:flex;width:100%;padding:9px 10px;border:0;background:transparent;border-radius:4px;font-size:12px;color:inherit;text-align:left;cursor:pointer}.ds-menu-item:hover{background:var(--accent-soft,#eaf0ff)}.ds-menu-item:focus-visible{outline:2px solid var(--accent,#315bcb);outline-offset:2px;background:var(--accent-soft,#eaf0ff)}@media(max-width:767px),(pointer:coarse){.ds-menu-item{min-width:44px;min-height:44px}}"
+    },
+    {
+      "name": "Superfície de diálogo",
+      "kind": "custom",
+      "refersTo": "dialog",
+      "description": "Recorte visual do diálogo; o comportamento modal real usa Radix.",
+      "html": "<section class=\"ds-dialog\" aria-labelledby=\"ds-dialog-title\"><h2 id=\"ds-dialog-title\" class=\"ds-dialog-title\">Compartilhar quadro</h2><p class=\"ds-dialog-description\">Escolha quem pode acessar este quadro.</p><button class=\"ds-dialog-action\">Concluir</button></section>",
+      "css": ".ds-dialog{font-family:Inter, system-ui, sans-serif;width:540px;max-width:calc(100vw - 32px);max-height:85dvh;overflow:auto;padding:28px;border-radius:12px;background:var(--surface,#fff);color:var(--text,#24272d);box-shadow:0 12px 36px rgba(24,28,36,.16)}.ds-dialog-title{font-size:20px;font-weight:600;letter-spacing:-.5px;margin:0 32px 8px 0}.ds-dialog-description{font-size:12px;line-height:1.7;color:var(--secondary,#626872);margin:0 0 20px}.ds-dialog-action{font-family:Inter, system-ui, sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:10px 16px;border:0;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;background:var(--accent,#315bcb);color:light-dark(#fff,#191b1f)}.ds-dialog-action:hover{filter:brightness(.94)}.ds-dialog-action:focus-visible{outline:2px solid var(--accent,#315bcb);outline-offset:2px;}@media(max-width:767px),(pointer:coarse){.ds-dialog-action{min-width:44px;min-height:44px}}@media(max-width:767px){.ds-dialog{padding:24px 20px}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Mesa de cartões",
+    "overview": "Uma mesa de cartões, clara e calma, organiza a experiência do Atelier Desk. O canvas quente recebe superfícies de papel, conteúdo colorido e ferramentas discretas. A hierarquia vem da posição, do espaço e da tipografia; a marca e a interface em pt-BR acompanham o trabalho visual.\n\nO claro é o estado inicial; o escuro mantém o mesmo desenho com superfícies de grafite e acento mais luminoso. A densidade serve ao trabalho: navegação e metadados compactos, títulos legíveis e conteúdo editável. No celular, a composição espacial tem uma alternativa linear com controles de toque ampliados.\n\nEste registro reconcilia o DESIGN.md inicial com a implementação em apps/web/src/styles/global.css, componentes, fontes locais e movimento do canvas. A evidência visual informada pela revisão cobre o quadro a 1280 × 800 e 390 × 844, nos dois temas, com capturas em .impeccable/review e testes axe em tests/e2e/workspace.spec.ts. A documentação de movimento vem do código e dos testes; as capturas desativam animações. O registro não certifica todas as telas, todos os estados ou equivalência integral a docs/PROMPT.md.",
+    "keyCharacteristics": [
+      "Canvas neutro quente e cartões de papel.",
+      "Inter autohospedada com pesos 400, 500 e 600.",
+      "Seleção azul, foco explícito e superfícies por nível.",
+      "Cartões, menus e diálogos com raios distintos.",
+      "Quadro espacial no desktop e alternativa linear no celular."
+    ],
+    "rules": [
+      {
+        "name": "Estado explícito",
+        "body": "Use o acento para seleção, foco e ações. Preserve texto, ícone ou marca de estado junto da cor quando a informação depende do estado.",
+        "section": "colors"
+      },
+      {
+        "name": "Uma família",
+        "body": "Use Inter nas superfícies da interface; diferencie papéis por tamanho, peso e espaço. Código no conteúdo pode usar ui-monospace.",
+        "section": "typography"
+      },
+      {
+        "name": "Elevação funcional",
+        "body": "Cartões repousam com sombra discreta, ganham sombra no arrasto e voltam ao repouso ao soltar. Colunas usam superfície tonal e borda, sem sombra.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do usar os papéis semânticos de cada tema para texto, superfície, borda e seleção.",
+      "Do manter cartões com raio de 6px, menus com 8px e diálogos com 12px; são decisões explícitas do usuário.",
+      "Do preservar a alternativa linear e os controles ampliados em telas pequenas ou ponteiro coarse.",
+      "Do distinguir posição direta do ponteiro de animação de aparência e interromper movimento com prefers-reduced-motion.",
+      "Do registrar evidência visual e de acessibilidade por tela, tema, viewport e estado efetivamente revisados."
+    ],
+    "donts": [
+      "Don't transformar a paleta de conteúdo dos cartões em cores fixas da navegação.",
+      "Don't animar a posição arrastada com atraso: a posição segue o ponteiro.",
+      "Don't usar apenas hover para revelar ações no celular: menus e ações de tarefa ficam visíveis.",
+      "Don't ampliar o escopo da evidência do quadro para todas as telas ou todos os requisitos do prompt."
+    ]
+  }
+}

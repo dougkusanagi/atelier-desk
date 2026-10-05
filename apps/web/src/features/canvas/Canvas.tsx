@@ -46,6 +46,7 @@ import {
   readSelection,
 } from '@atelier/domain';
 import { useCanvas } from './state';
+import { selectionClipboard } from '../../lib/selectionClipboard';
 import type { Presence } from '../../lib/sync';
 import { ConnectorEditor } from '../../components/ConnectorEditor';
 type SpatialItem = { minX: number; minY: number; maxX: number; maxY: number; id: string };
@@ -61,7 +62,6 @@ type Gesture = {
   velocity: Point;
   sampleAt: number;
 };
-let clipboard: { cards: Card[]; connectors: Connector[] } | null = null;
 export function Canvas({
   board,
   renderCard,
@@ -300,8 +300,8 @@ export function Canvas({
     notify('Itens movidos para a lixeira. Desfazer');
   }, [board, selected, state.cards, cards, readOnly, setSelected, notify]);
   const serializeSelection = useCallback(() => {
-    clipboard = copySelection(state, selected);
-    return JSON.stringify({ atelier: 1, ...clipboard });
+    selectionClipboard.value = copySelection(state, selected);
+    return JSON.stringify({ atelier: 1, ...selectionClipboard.value });
   }, [state, selected]);
   const copy = useCallback(() => {
     const text = serializeSelection();
@@ -314,8 +314,9 @@ export function Canvas({
     if (readOnly) return;
     copy();
     board.remove(
-      clipboard?.cards.map((card) => card.id).concat(clipboard.connectors.map((line) => line.id)) ??
-        [],
+      selectionClipboard.value?.cards
+        .map((card) => card.id)
+        .concat(selectionClipboard.value.connectors.map((line) => line.id)) ?? [],
     );
     setSelected([]);
     notify('Seleção recortada. Desfazer');
@@ -354,7 +355,9 @@ export function Canvas({
     try {
       text = await navigator.clipboard.readText();
     } catch {
-      text = clipboard ? JSON.stringify({ atelier: 1, ...clipboard }) : '';
+      text = selectionClipboard.value
+        ? JSON.stringify({ atelier: 1, ...selectionClipboard.value })
+        : '';
     }
     insertText(text);
   }, [insertText]);
@@ -881,9 +884,9 @@ export function Canvas({
         event.preventDefault();
         event.clipboardData.setData('text/plain', serializeSelection());
         board.remove(
-          clipboard?.cards
+          selectionClipboard.value?.cards
             .map((card) => card.id)
-            .concat(clipboard.connectors.map((line) => line.id)) ?? [],
+            .concat(selectionClipboard.value.connectors.map((line) => line.id)) ?? [],
         );
         setSelected([]);
         notify('Seleção recortada. Desfazer');

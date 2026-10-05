@@ -17,6 +17,7 @@ import {
 import { api, RequestError, type BoardMeta, type Workspace } from '../lib/api';
 import { cache } from '../lib/cache';
 import { useAuth } from '../lib/auth';
+import { useCanvas } from '../features/canvas/state';
 type WorkspaceContext = {
   workspaceId: string;
   setWorkspaceId: (id: string) => void;
@@ -182,7 +183,19 @@ export function Shell() {
             <button
               title="Sair"
               aria-label="Sair"
-              onClick={() => void logout().then(() => navigate('/entrar'))}
+              onClick={() =>
+                void logout()
+                  .then((complete) => complete && navigate('/entrar'))
+                  .catch((error) =>
+                    useCanvas
+                      .getState()
+                      .notify(
+                        error instanceof Error
+                          ? error.message
+                          : 'Não foi possível sair. Verifique sua conexão.',
+                      ),
+                  )
+              }
             >
               <LogOut size={16} />
             </button>

@@ -1,16 +1,24 @@
-import { createContext, useContext, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, RequestError, setCsrf, type User } from './api';
+import { Dialog } from '../components/Dialog';
+import { cache } from './cache';
+import { flushAccount, stopAccount } from './sessionLifecycle';
+import { accountHasPending, downloadRecovery } from './recovery';
 type Auth = {
   user: User | null;
   loading: boolean;
   refresh: () => Promise<unknown>;
   setSession: (session: { user: User; csrfToken: string }) => void;
-  logout: () => Promise<void>;
+  logout: () => Promise<boolean>;
 };
 const Context = createContext<Auth | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const client = useQueryClient();
+  const [loggingOut, setLoggingOut] = useState(false),
+    [recovery, setRecovery] = useState(false),
+    [recovering, setRecovering] = useState(false),
+    [recoveryError, setRecoveryError] = useState('');
   const query = useQuery({
     queryKey: ['session'],
     queryFn: async () => {
@@ -47,10 +55,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       client.setQueryData(['session'], session.user);
     },
     logout: async () => {
-      await api('/auth/logout', { method: 'POST' });
-      localStorage.removeItem('atelier-user');
-      setCsrf('');
-      client.clear();
+      const userId = query.data?.id;
+      if (!userId || loggingOut) return false;
+      setLoggingOut(true);
+      try {
+        await flushAccount(userId);
+        if (await accountHasPending(userId)) {
+          setRecovery(true);
+          return false;
+        }
+        await api('/auth/logout', { method: 'POST' });
+        await stopAccount(userId);
+        await client.cancelQueries();
+        localStorage.removeItem('atelier-user');
+        setCsrf('');
+        client.setQueryData(['session'], null);
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        await cache.clearUser(userId);
+        client.clear();
+        setRecovery(false);
+        return true;
+      } finally {
+        setLoggingOut(false);
+      }
     },
   };
   if (query.isError)
@@ -63,7 +90,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         </button>
       </div>
     );
-  return <Context.Provider value={value}>{children}</Context.Provider>;
+  return (
+    <Context.Provider value={value}>
+      {children}
+      <Dialog
+        open={loggingOut || recovery}
+        onClose={() => {
+          if (!loggingOut && !recovering) setRecovery(false);
+        }}
+        title={loggingOut ? 'Saindo da conta…' : 'Preserve seu trabalho antes de sair'}
+      >
+        {loggingOut ? (
+          <p>Confirmando o salvamento e limpando os dados deste dispositivo.</p>
+        ) : (
+          <>
+            <p>
+              Há alterações ou arquivos que ainda não chegaram ao servidor. Conecte-se para salvar
+              ou baixe uma cópia local. Sua conta permanecerá aberta para preservar esse trabalho.
+            </p>
+            <div className="dialog-actions">
+              <button
+                className="secondary-button"
+                disabled={recovering}
+                onClick={() => setRecovery(false)}
+              >
+                Continuar no Atelier
+              </button>
+              <button
+                className="primary-button"
+                disabled={recovering}
+                onClick={() => {
+                  setRecovering(true);
+                  setRecoveryError('');
+                  void downloadRecovery(query.data!.id)
+                    .catch(() =>
+                      setRecoveryError(
+                        'Não foi possível baixar a cópia. Mantenha a conta aberta e tente novamente.',
+                      ),
+                    )
+                    .finally(() => setRecovering(false));
+                }}
+              >
+                {recovering ? 'Preparando cópia…' : 'Baixar cópia local'}
+              </button>
+            </div>
+            {recoveryError && <p role="alert">{recoveryError}</p>}
+          </>
+        )}
+      </Dialog>
+    </Context.Provider>
+  );
 }
 export function useAuth() {
   const value = useContext(Context);

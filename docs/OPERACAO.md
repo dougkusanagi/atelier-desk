@@ -38,3 +38,9 @@ Jobs usam `FOR UPDATE SKIP LOCKED`. Um job interrompido pode voltar à fila apó
 O container PostgreSQL externo foi executado com Podman rootless e o teste de duas APIs/escritas concorrentes passou. O build da imagem web também passou. As suítes local/E2E usam SMTP em outbox; entregabilidade SMTP, bucket S3, ClamAV e TLS exigem validação com os serviços configurados para a implantação. Consulte `VALIDACAO.md` e `feature-matrix.md` para distinguir recursos testados e critérios avançados ainda em implementação.
 
 Referências de implementação: [Plugin API do Vite](https://vite.dev/guide/api-plugin.html), [browsers do Playwright](https://playwright.dev/docs/browsers) e [CI do Playwright](https://playwright.dev/docs/ci).
+
+## Saída da conta e cópia local
+
+Antes de sair, a aplicação força a persistência das mudanças locais e verifica a fila. Se houver trabalho pendente, mantém a conta aberta e oferece um ZIP com quadros, documentos causais e originais dos uploads ainda não enviados. Para restaurar cartões, copie o JSON de `quadros/` no clipboard e cole em um quadro novo; seleções têm limite de 1.000 cartões. Reenvie separadamente os arquivos pendentes. Assets já remotos não fazem parte dessa cópia.
+
+Depois de salvar e sair online, a aplicação encerra os documentos abertos, remove os bancos/cache daquele usuário e limpa sua identidade local. Feche outras abas do mesmo usuário para permitir a exclusão dos bancos IndexedDB. A saída da conta não substitui o backup do servidor.

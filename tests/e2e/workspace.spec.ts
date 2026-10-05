@@ -478,3 +478,55 @@ test('audita o quadro em desktop e mobile nos dois temas', async ({ page }) => {
   }
   expect(findings).toEqual([]);
 });
+
+test('oferece recuperação de trabalho offline e limpa dados locais ao sair após salvar', async ({
+  page,
+  context,
+}) => {
+  await register(page);
+  const session = await (await page.request.get('/api/v1/auth/me')).json();
+  await context.setOffline(true);
+  await page.getByRole('button', { name: 'Nota', exact: true }).click();
+  await page
+    .locator('.card-note.selected [contenteditable]')
+    .fill('Trabalho pendente para recuperar');
+  await expect(page.locator('.save-state')).toContainText('Offline');
+  await page.getByRole('button', { name: 'Sair', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Preserve seu trabalho antes de sair' }),
+  ).toBeVisible();
+  const downloadEvent = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Baixar cópia local', exact: true }).click();
+  const recovery = await downloadEvent;
+  expect(recovery.suggestedFilename()).toBe('recuperacao-atelier.zip');
+  const archive = await readFile((await recovery.path())!);
+  expect(archive.subarray(0, 2).toString()).toBe('PK');
+  expect(archive.includes(Buffer.from('Trabalho pendente para recuperar'))).toBe(true);
+  await page.getByRole('button', { name: 'Continuar no Atelier' }).click();
+  await context.setOffline(false);
+  await expect(page.locator('.save-state')).toHaveText('Salvo');
+  await page.getByRole('button', { name: 'Sair', exact: true }).click();
+  await expect(page).toHaveURL(/\/entrar$/);
+  const databases = await page.evaluate(() => indexedDB.databases());
+  expect(
+    databases.some((database) => database.name?.startsWith('atelier:' + session.user.id + ':')),
+  ).toBe(false);
+  const records = await page.evaluate(async (userId) => {
+    const request = indexedDB.open('atelier-offline-v1');
+    const database = await new Promise<IDBDatabase>((resolve) => {
+      request.onsuccess = () => resolve(request.result);
+    });
+    let count = 0;
+    for (const store of ['documents', 'outbox', 'metadata', 'history']) {
+      const query = database.transaction(store).objectStore(store).getAllKeys();
+      const keys = await new Promise<IDBValidKey[]>((resolve) => {
+        query.onsuccess = () => resolve(query.result);
+      });
+      count += keys.filter((key) => String(key).startsWith(userId + ':')).length;
+    }
+    database.close();
+    return count;
+  }, session.user.id);
+  expect(records).toBe(0);
+  expect(await page.evaluate(() => localStorage.getItem('atelier-user'))).toBeNull();
+});

@@ -2,19 +2,26 @@
 
 ## Processo de entrega
 
-Cada marco resulta em comportamento utilizável, testes pertinentes, atualização desta lista e da matriz, commit descritivo em pt-BR e push. Não aguardar o término de toda a aplicação para publicar código.
+Cada incremento testável recebe validação pertinente, commit descritivo em pt-BR e push para `main`. O prompt foi publicado antes do código. A evidência cronológica está em [VALIDACAO.md](VALIDACAO.md); [feature-matrix.md](feature-matrix.md) registra os limites desta versão.
 
-| Marco | Entrega                                     | Validação de saída                                       | Estado                                                        |
-| ----- | ------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------- |
-| 0     | Repositório, prompt integral e plano        | Conferir documentos e remoto                             | Concluído                                                     |
-| 1     | Monorepo, tokens e motor do canvas          | Transformações, zoom, seleção, arraste, build            | Canvas funcional publicado; benchmark pendente                |
-| 2     | Cartões e edição                            | Edição, upload, clipboard, undo/redo                     | Implementado; E2E ampliado em andamento                       |
-| 3     | Colunas, conexões e quadros aninhados       | Ordenação, geometria, navegação e duplicação             | Funcional; controles avançados em andamento                   |
-| 4     | API, autenticação, banco, assets e offline  | Persistência, autorização, reinício e reconexão          | Integrações passaram; validação offline ampliada em andamento |
-| 5     | Interações, responsividade e acessibilidade | Browser desktop/mobile, movimento reduzido e teclado     | Implementado; auditoria final pendente                        |
-| 6     | Colaboração, comentários e compartilhamento | Dois clientes, convergência, revogação e leitura pública | Funcional; múltiplas instâncias e E2E em andamento            |
-| 7     | Exportação, templates, busca e operação     | Exportações reais, E2E, CI e documentação                | Exportações verificadas; infraestrutura e QA em andamento     |
+| Marco                     | Resultado entregue                                                                     | Validação                                                                |
+| ------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 0 — repositório e prompt  | Repositório criado com `gh`, prompt integral, plano e premissas publicados             | Remoto e documentos conferidos                                           |
+| 1 — canvas                | Monorepo, tokens, pan/zoom, seleção, drag e culling                                    | Domínio, E2E e benchmark com 1.007 cartões                               |
+| 2 — cartões               | Dez tipos, edição rica, uploads, recorte, tarefas, clipboard e undo/redo               | Integrações e navegador com persistência após recarga                    |
+| 3 — organização           | Colunas, conexões, curvas, alinhamento, subquadros e duplicação de hierarquia          | Domínio, permissões/ciclos e E2E de conexões/colunas                     |
+| 4 — persistência          | API, autenticação, PostgreSQL, assets privados, recuperação offline e histórico causal | Reinício, duas APIs concorrentes, reabertura offline e saída da conta    |
+| 5 — interações            | Microanimações, inércia, autopan, temas, visão móvel e teclado                         | Capturas desktop/mobile, revisão independente e axe nos dois temas       |
+| 6 — colaboração           | CRDT, presença, comentários, menções, convites, links e publicação                     | Duas sessões, reconexão, autorização REST/WebSocket e snapshots públicos |
+| 7 — exportação e operação | PNG/PDF/Markdown/ZIP, templates, busca, containers, worker, CI e guias                 | Arquivos reais, PostgreSQL externo, builds, 59 testes e 16 E2E           |
 
-## Critério de conclusão
+Os sete marcos têm entregas funcionais publicadas. A conclusão integral da especificação avançada continua condicionada às pendências explícitas da matriz; não confundir uma entrega utilizável com certificação de todos os critérios de produção.
 
-Todos os requisitos do prompt precisam de implementação e evidência de validação. Recursos ainda não entregues permanecem explicitamente pendentes na matriz.
+## Próximas entregas delimitadas
+
+1. Presença distribuída e um cenário de três usuários com falhas/reconexão.
+2. Busca local offline, fila de hierarquia/comentários e cache de mídia limitado.
+3. Conversão Office, posters/metadados de mídia e expurgo automático da lixeira.
+4. Coordenação de logout entre abas e limites globais de processamento de uploads.
+5. Auditoria manual de leitor de tela, tablet e zoom de 200% em todos os fluxos.
+6. Configuração e ensaio de restauração em ambiente com TLS, SMTP, ClamAV e object storage reais.
