@@ -1,0 +1,46 @@
+{
+  "name": "@atelier/api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@atelier/domain": "workspace:*",
+    "@aws-sdk/client-s3": "3.1146.0",
+    "@aws-sdk/s3-request-presigner": "3.1146.0",
+    "@electric-sql/pglite": "0.5.8",
+    "@fastify/cookie": "11.1.2",
+    "@fastify/helmet": "13.1.1",
+    "@fastify/multipart": "10.1.2",
+    "@fastify/rate-limit": "11.2.0",
+    "@fastify/static": "10.1.5",
+    "@fastify/swagger": "9.9.1",
+    "@fastify/swagger-ui": "6.1.1",
+    "@fastify/websocket": "11.3.3",
+    "argon2": "0.45.1",
+    "drizzle-orm": "0.45.3",
+    "fastify": "5.12.5",
+    "file-type": "22.1.1",
+    "jszip": "3.10.2",
+    "lib0": "0.2.119",
+    "nodemailer": "10.0.15",
+    "pdf-lib": "1.17.1",
+    "pg": "8.23.1",
+    "sanitize-html": "2.18.0",
+    "sharp": "0.35.5",
+    "undici": "8.11.2",
+    "y-protocols": "1.0.7",
+    "yjs": "13.6.33",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "8.0.2",
+    "@types/pg": "8.23.1",
+    "@types/sanitize-html": "2.16.2"
+  }
+}
