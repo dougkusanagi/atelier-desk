@@ -120,3 +120,9 @@
 - A cópia inclui snapshots dos quadros, documentos causais e arquivos pendentes; não inclui assets remotos. A limpeza dos bancos pode exigir fechar outras abas do mesmo usuário.
 - `DESIGN.md` e `.impeccable/design.json` registram os tokens realmente implementados. A revisão independente das quatro capturas aprovou a correção de alvos táteis; seu escopo foi visual e não constitui validação integral do produto.
 - CI remoto [37346158968](https://github.com/dougkusanagi/atelier-desk/actions/runs/37346158968) passou integralmente para `1811c48`, incluindo PostgreSQL externo e os 15 E2E disponíveis naquele commit. A validação local acima inclui o 16º cenário.
+
+## Etapa 15 — sequência de saída verificada no CI
+
+- O CI [37348027575](https://github.com/dougkusanagi/atelier-desk/actions/runs/37348027575) passou em lint, tipos, 59 testes, builds, PostgreSQL e 15 E2E. O 16º cenário revelou que a navegação para a entrada podia ocorrer antes de terminar a exclusão do IndexedDB.
+- A sessão agora entra em uma fase de limpeza: desmonta o quadro, aguarda encerramento/persistência, limpa os bancos e só então libera a tela de entrada. Revogação da sessão e limpeza da identidade também permanecem garantidas quando a limpeza local retorna um erro.
+- `pnpm lint` e `pnpm typecheck` passaram. O cenário de recuperação/logout foi executado dez vezes sobre build de produção, sem retries: 10/10 passaram.

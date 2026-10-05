@@ -16,6 +16,7 @@ const Context = createContext<Auth | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const client = useQueryClient();
   const [loggingOut, setLoggingOut] = useState(false),
+    [cleaning, setCleaning] = useState(false),
     [recovery, setRecovery] = useState(false),
     [recovering, setRecovering] = useState(false),
     [recoveryError, setRecoveryError] = useState('');
@@ -47,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [query.refetch]);
   const value: Auth = {
     user: query.data ?? null,
-    loading: query.isPending,
+    loading: query.isPending || cleaning,
     refresh: () => client.invalidateQueries({ queryKey: ['session'] }),
     setSession: (session) => {
       setCsrf(session.csrfToken);
@@ -65,16 +66,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return false;
         }
         await api('/auth/logout', { method: 'POST' });
-        await stopAccount(userId);
-        await client.cancelQueries();
-        localStorage.removeItem('atelier-user');
-        setCsrf('');
-        client.setQueryData(['session'], null);
-        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-        await cache.clearUser(userId);
-        client.clear();
-        setRecovery(false);
-        return true;
+        setCleaning(true);
+        try {
+          await stopAccount(userId);
+          await client.cancelQueries();
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          await cache.clearUser(userId);
+          setRecovery(false);
+          return true;
+        } finally {
+          localStorage.removeItem('atelier-user');
+          setCsrf('');
+          client.clear();
+          client.setQueryData(['session'], null);
+          setCleaning(false);
+        }
       } finally {
         setLoggingOut(false);
       }
